@@ -1,0 +1,152 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from '../dist/vendor/three.module.js';
+import {makeScenery} from '../dist/world.js';
+import {RAPIER, IslandGame, COSTS} from '../dist/simulation.js';
+import {Survival} from '../dist/survival.js';
+import {
+  SAVE_SCHEMA_VERSION, SaveGameError, captureGameState, applyGameState,
+  validateSave, exportSave, saveToStorage, readFromStorage,
+} from '../dist/save-game.js';
+
+await RAPIER.init();
+
+function freshIsland() {
+  const scene = new THREE.Scene();
+  makeScenery(scene);
+  const game = new IslandGame(scene);
+  game.inventory = {coconut: 0, fish: 0, seafood: 0, cooked: 0, shell: 0, coin: 0,
+    pearl: 0, chest: 0, relic: 0, feather: 0, meat: 0, vine: 0, strips: [], ropes: []};
+  const life = {state: new Survival(Math.random, game.inventory)};
+  let tool = 'axe';
+  const tools = ['axe', 'shovel', 'shotgun'];
+  const exploration = {holes: [], pyramid: new THREE.Group(), get tool() { return tool; },
+    select(direction = 1) { tool = tools[(tools.indexOf(tool) + direction + tools.length) % tools.length]; }};
+  return {game, life, exploration};
+}
+
+function memoryStorage() {
+  const values = new Map();
+  return {getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), values};
+}
+
+test('a real island survives a save/reload with inventory, workshop outputs, bench, excavation and survival state', () => {
+  const before = freshIsland();
+  const {game, life, exploration} = before;
+  game.wood = COSTS.workbench + 2;
+  assert.equal(game.build('workbench', 2, 3, Math.PI / 2), true);
+  game.inventory.vine = 3;
+  game.inventory.strips.push(84, 82, 80);
+  game.inventory.ropes.push({length: 2, quality: 78}, {length: 1, quality: 92});
+  game.logs.push({collecting: true}); // a dropped log is credited on reload
+  game.spawnLeaves(0, 0, 2, new THREE.Vector3(1, 0, 0));
+  game.trees[0].hp = 2;
+  game.bushes[0].hp = 1;
+  game.bushes[0].root.scale.setScalar(.9);
+  game.player.root.position.set(1, .22, -1);
+  game.player.root.rotation.y = .4;
+  exploration.select(1);
+  exploration.holes.push({x: -1, z: -2, level: 3, pyramid: false});
+  life.state.satiety = 69;
+  life.state.torch = true;
+  life.state.lit = true;
+  life.getCoconutCounts = () => game.trees.map((_, i) => i === 0 ? 1 : 3);
+  life.getPendingCoconuts = () => 2;
+  before.dayCycle = {state: {hour: 7.5, speed: .25}};
+
+  const saved = captureGameState(before, new Date('2026-09-25T20:00:00.000Z'));
+  assert.equal(saved.schemaVersion, SAVE_SCHEMA_VERSION);
+  const after = freshIsland();
+  after.life.restoreCoconuts = counts => { after.life.coconuts = counts; };
+  after.dayCycle = {restore(saved) { this.state = saved; }};
+  applyGameState(after, exportSave(saved));
+  assert.equal(after.game.wood, 3); // 2 held + 1 log awaiting pickup
+  assert.equal(after.game.leaves, 2); // uncollected leaves remain available
+  assert.deepEqual(after.game.inventory.ropes, [{length: 2, quality: 78}, {length: 1, quality: 92}]);
+  assert.deepEqual(after.game.inventory.strips, [84, 82, 80]);
+  assert.equal(after.game.inventory.vine, 3);
+  assert.equal(after.game.inventory.coconut, 2);
+  assert.equal(after.life.coconuts[0], 1);
+  assert.equal(after.game.buildings.length, 1);
+  assert.equal(after.game.buildings[0].type, 'workbench');
+  assert.equal(after.game.buildings[0].visual.rotation.y, Math.PI / 2);
+  assert.equal(after.game.canBuild('fire', 2, 3), false); // restored collider/occupied site
+  assert.equal(after.game.trees[0].hp, 2);
+  assert.equal(after.game.bushes[0].hp, 1);
+  assert.equal(after.game.bushes[0].root.scale.x, .9);
+  assert.equal(after.exploration.holes[0].level, 3);
+  assert(after.game.scene.userData.terrain.heightAt(-1, -2) < .22);
+  assert.equal(after.exploration.tool, 'shovel');
+  assert.equal(after.life.state.satiety, 69);
+  assert.equal(after.life.state.lit, true);
+  assert.deepEqual(after.dayCycle.state, {hour: 7.5, speed: .25});
+  assert.deepEqual(after.game.player.root.position.toArray(), [1, .22, -1]);
+  assert.throws(() => applyGameState(after, saved), SaveGameError); // cannot double-spawn buildings
+});
+
+test('a felled palm is not resurrected and its resources do not vanish mid-fall', () => {
+  const before = freshIsland();
+  const tree = before.game.trees[0];
+  tree.hp = 0;
+  tree.state = 'falling';
+  const saved = captureGameState(before);
+  const after = freshIsland();
+  applyGameState(after, saved);
+  assert.equal(after.game.trees[0].state, 'gone');
+  assert.equal(after.game.trees[0].root.visible, false);
+  assert.equal(after.game.trees[0].body, null);
+  assert.equal(after.game.wood, 5);
+  assert.equal(after.game.leaves, 6);
+});
+
+test('a ready fish trap and cooking timer continue after reload', () => {
+  const before = freshIsland();
+  before.game.wood = COSTS.fire + COSTS.trap;
+  assert.equal(before.game.build('fire', 2, 3), true);
+  assert.equal(before.game.build('trap', 7, 0), true);
+  const fire = before.game.buildings[0];
+  const trap = before.game.buildings[1];
+  before.life.state.traps.set(trap, {wait: 12, catch: 'seafood'});
+  before.life.state.cooking = {fire, kind: 'fish', remaining: 3};
+  const after = freshIsland();
+  applyGameState(after, captureGameState(before));
+  assert.deepEqual(after.life.state.traps.get(after.game.buildings[1]), {wait: 12, catch: 'seafood'});
+  assert.equal(after.life.state.cooking.fire, after.game.buildings[0]);
+  assert.equal(after.life.state.cooking.remaining, 3);
+  assert.equal(after.life.state.update(4, after.game.buildings), true);
+  assert.equal(after.game.inventory.cooked, 1);
+  assert.equal(after.life.state.collect(after.game.buildings[1]), true);
+  assert.equal(after.game.inventory.seafood, 1);
+});
+
+test('malformed and future saves leave a valid stored position intact; backup can recover it', () => {
+  const storage = memoryStorage();
+  const first = captureGameState(freshIsland(), new Date('2026-09-25T20:00:00.000Z'));
+  const later = structuredClone(first);
+  later.savedAt = '2026-09-25T20:10:00.000Z';
+  later.inventory.ropes.push({length: 3, quality: 88});
+  saveToStorage(storage, first);
+  assert.throws(() => saveToStorage(storage, '{broken'), SaveGameError);
+  assert.throws(() => saveToStorage(storage, {...later, schemaVersion: 999}), SaveGameError);
+  assert.deepEqual(readFromStorage(storage).save, first);
+
+  saveToStorage(storage, later);
+  const primary = storage.getItem('trosechnik.save.v1');
+  storage.setItem('trosechnik.save.v1', '{broken');
+  const recovered = readFromStorage(storage);
+  assert.equal(recovered.source, 'backup');
+  assert.deepEqual(recovered.save, first);
+  assert.equal(recovered.errors.length, 1);
+  assert.throws(() => validateSave({...later, inventory: {...later.inventory, ropes: [{length: -2, quality: 80}]}}), SaveGameError);
+  assert.equal(primary, JSON.stringify(later));
+});
+
+test('wrong island layout is rejected before modifying game state', () => {
+  const data = captureGameState(freshIsland());
+  data.world.trees.pop();
+  const after = freshIsland();
+  assert.throws(() => applyGameState(after, data), SaveGameError);
+  assert.equal(after.game.wood, 0);
+  assert.equal(after.game.buildings.length, 0);
+  assert.equal(after.game.trees[0].state, 'standing');
+});

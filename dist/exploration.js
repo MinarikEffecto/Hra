@@ -93,7 +93,7 @@ export function createExploration(scene,game,{sound,noise}){
  }
  function toggleBag(open=$('bagPanel').hidden){if(open)updateBag();$('bagPanel').hidden=!open;$('bagBtn').setAttribute('aria-expanded',String(open));}
  let lastTouchOpen=0;function openBagWorkshop(e){const item=e.target.closest?.('[data-workshop]');if(!item||item.disabled)return false;e.preventDefault();lastTouchOpen=performance.now();workshop.open(item.dataset.workshop);return true;}
- $('bagBtn').onclick=()=>toggleBag();$('bagClose').onclick=()=>toggleBag(false);$('bagContents').addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')openBagWorkshop(e);});$('bagContents').addEventListener('click',e=>{if(performance.now()-lastTouchOpen>500)openBagWorkshop(e);});workshop=createFiberCrafting(game,{sound,onInventoryChange:()=>{updateBag();$('leaves').textContent=game.leaves;},closeBag:()=>toggleBag(false),canCraft:nearWorkbench});game.openFiberCrafting=action=>workshop.open(action);updateBag();
+ $('bagBtn').onclick=()=>toggleBag();$('bagClose').onclick=()=>toggleBag(false);$('bagContents').addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')openBagWorkshop(e);});$('bagContents').addEventListener('click',e=>{if(performance.now()-lastTouchOpen>500)openBagWorkshop(e);});workshop=createFiberCrafting(game,{sound,onInventoryChange:()=>{updateBag();$('leaves').textContent=game.leaves;game.requestSave?.();},closeBag:()=>toggleBag(false),canCraft:nearWorkbench});game.openFiberCrafting=action=>workshop.open(action);updateBag();
 
  function startFlood(h,sourceX,sourceZ,startHeight){
   if(h.flood)return h.flood;const bottom=terrain.heightAt(h.x,h.z),material=new THREE.MeshPhysicalMaterial({color:0x35b7bd,transparent:true,opacity:.42,roughness:.15,metalness:.05,depthWrite:false});const surface=mesh(new THREE.CircleGeometry(1,48),material,scene,sourceX,startHeight,sourceZ);surface.rotation.x=-Math.PI/2;surface.scale.setScalar(.04);surface.renderOrder=3;surface.castShadow=false;
@@ -115,9 +115,10 @@ export function createExploration(scene,game,{sound,noise}){
    const reveal=Math.min(hole.level,PYRAMID_REVEAL_DEPTH)/PYRAMID_REVEAL_DEPTH,target=GROUND-1.87+reveal*1.69;pyramid.userData.targetY=target;
    if(hole.level===2)addLoot('coin',hole.x+.3,hole.z);else if(hole.level===4)addLoot('pearl',hole.x-.25,hole.z+.15);else if(hole.level===PYRAMID_REVEAL_DEPTH){addLoot('relic',hole.x,hole.z-.3);showLoot('🗿 Pyramida odkryta  →  🎒 relikvie');}
   }else{const r=Math.random(),kind=r<.08?'chest':r<.18?'pearl':r<.45?'coin':r<.72?'shell':null;if(kind)addLoot(kind,hole.x,hole.z);}
+  game.requestSave?.();
  }
 
- return {dig,select,get tool(){return tool},inventory,holes,floods,pyramid,update(dt){
+ return {dig,select,get tool(){return tool},inventory,holes,floods,pyramid,restoreFloods(){for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
   const marker=digTarget();digMarker.visible=tool==='shovel'&&!game.craftingOpen;if(digMarker.visible){digMarker.position.set(marker.x,terrain.heightAt(marker.x,marker.z)+.028,marker.z);digMarkerMaterial.color.set(marker.valid?0xffefad:0xf06f61);digMarker.scale.setScalar(.96+Math.sin(game.elapsed*5)*.04);}
   if(pending){pending.at-=dt;if(pending.at<=0){uncover(pending);pending=null;}}digTime=Math.max(0,digTime-dt);gunTime=Math.max(0,gunTime-dt);muzzle.visible=gunTime>.2;const moving=game.walk!==0;walkBlend=THREE.MathUtils.damp(walkBlend,moving?1:0,9,dt);const t=game.elapsed;
   player.body.rotation.z=Math.sin(game.walk)*.045*walkBlend;player.body.rotation.y=Math.sin(game.walk)*.05*walkBlend;player.body.position.y=Math.abs(Math.sin(game.walk))*.045*walkBlend+Math.sin(t*2.1)*.009;player.body.scale.y=1+Math.sin(t*2.1)*.008;player.body.rotation.x=game.swimming?.42:digTime?Math.sin((.82-digTime)/.82*Math.PI)*.42:game.swing?Math.sin((.5-game.swing)/.5*Math.PI)*.09:walkBlend*.045;
