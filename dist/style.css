@@ -47,6 +47,7 @@ footer{left:auto;right:16px;bottom:20px}#buildBtn{width:48px;height:48px;padding
 
 /* Station production remains reachable by touch without replacing the cooking action. */
 #techOpen{white-space:nowrap;touch-action:manipulation}
+@media(max-width:700px){#techOpen .techButtonLabel{display:none}}
 .techPanel{position:fixed;inset:0;z-index:210;display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:#102f32e8}
 .techCard{width:min(570px,100%);max-height:100%;overflow:auto;overscroll-behavior:contain;background:#fff6df;border-radius:22px;padding:clamp(16px,4vw,28px);box-shadow:0 22px 65px #061c1e88}
 .techHead{display:flex;align-items:start;justify-content:space-between;gap:12px}.techHead h2{margin:4px 0}.techHead small{color:#587d62;font-weight:900;letter-spacing:1px}.techHead button{flex:none;width:40px;height:40px;padding:0;box-shadow:none}

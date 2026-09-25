@@ -15,7 +15,10 @@ export function createTechnologyUI(game, technology, {toast, sound, hud}) {
   function refresh() {
     openButton.hidden = !technology.job && !['fire', 'furnace', 'workbench'].some(near);
     const job = technology.job;
-    openButton.textContent = job ? `⏳ ${Math.ceil(job.remaining)} s · Výroba` : '⚒ Výroba';
+    openButton.innerHTML = job ? `<span aria-hidden="true">⏳</span><span class="techButtonLabel">${Math.ceil(job.remaining)} s · Výroba</span>` :
+      '<span aria-hidden="true">⚒</span><span class="techButtonLabel">Výroba</span>';
+    openButton.setAttribute('aria-label', job ? `Výroba probíhá, zbývá ${Math.ceil(job.remaining)} sekund. Otevřít podrobnosti.` :
+      'Otevřít výrobu u ohniště, pece nebo ponku');
     $('techProgress').textContent = job ?
       `${job.kind === 'charcoal' ? 'Dřevo se pálí' : 'Měď se taví'} · zbývá ${Math.ceil(job.remaining)} s. Můžeš odejít; výroba pokračuje při hraní.` :
       'Žádná výroba neprobíhá. Suroviny se spotřebují až při spuštění.';
