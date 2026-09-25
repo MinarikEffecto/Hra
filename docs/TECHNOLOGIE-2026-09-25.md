@@ -1,7 +1,9 @@
 # První tavba — pracovní větev 25. 9. 2026
 
-Větev `game-sprint/2026-09-25-prvni-taveni` navazuje na `d105483`.
-Jde o zdrojový kandidát, nikoli o publikovanou verzi Sites.
+Vývoj vznikl v oddělené větvi `game-sprint/2026-09-25-prvni-taveni` a byl
+začleněn do pracovní větve [`game-sprint/2026-09-25-mobilni-dilna`](https://github.com/MinarikEffecto/Hra/tree/game-sprint/2026-09-25-mobilni-dilna)
+a [draft PR #1](https://github.com/MinarikEffecto/Hra/pull/1). Jde o zdrojový
+kandidát, nikoli o publikovanou verzi Sites.
 
 ## Hratelný postup
 
@@ -22,8 +24,17 @@ Při uložení uprostřed výroby se uloží už odečtené vstupy a zbývajíc�
 
 ## Ověření a omezení
 
-`npm test` prošlo **18/18**: v1 migrace a poškozené hodnoty, atomické suroviny na pec a job, odmítnutí druhého jobu, dokončení právě jednou, uložení a obnova tavby, opékání ze starých testů i čtyři prameny s řezákem. `node --check` dotčených modulů a `git diff --check` prošly.
+`npm test` prošlo **20/20** v celé pracovní větvi: v1 migrace a poškozené
+hodnoty, ochrana pozice z novější verze, uložení hlubokého výkopu, atomické
+suroviny na pec a job, odmítnutí druhého jobu, dokončení právě jednou,
+uložení a obnova tavby, opékání ze starých testů i čtyři prameny s řezákem.
+`node --check` dotčených modulů a `git diff --check` prošly.
 
 Samostatný headless Chromium se softwarovým WebGL otevřel hru na desktopu 1280 × 800, mobilu 390 × 844 a krátké obrazovce 844 × 390. V každém rozměru se otevřela výroba, spustilo pálení a obnovil se aktivní job po reloadu; žádná neodchycená JS chyba. Na desktopu prošla tlačítka opékání ryby, tavby u pece a výroby řezáku u ponku. Na mobilním rozměru 390 × 844 navíc výroba **skutečně doběhla**: získané uhlí se spotřebovalo v tavbě, vznikl ingot a z něj u ponku řezák; do těchto návazných kroků se nepřidávalo testovací uhlí ani ingot. Mobilní tlačítko výroby má krátkou ikonu, aby nepřetékalo přes ostatní ovládání. Pro prohlížečový scénář byla použita validní připravená pozice se stavbami, dřevem, jílem a rudou; skript mezi stanicemi zkrátil přesun hráče. Úplný nový technologický postup od pokácení čtyř palem a čtyř kopnutí nebyl v reálném prohlížeči projit. Skutečný telefon a dlouhé časování výroby v něm nebyly ověřeny. Offline výroba ani několik současných jobů nejsou součástí tohoto úzkého celku.
+
+Samostatné mobilní průchody navíc ověřily čtyři skutečná kopnutí k jílu a rudě,
+umístění pece a obnovení pozice, a částečnou cestu od úplně nové hry bez seedu
+či přesunu: joystick, pokácení dvou palem, sběr dřeva a dotykové spuštění
+pálení u ohniště. Nejde o ověření celého řetězce od nové hry až po řezák.
 
 Ručně spravovaný `dist/` zůstává zdrojem, bez build kroku a bez nasazení.
