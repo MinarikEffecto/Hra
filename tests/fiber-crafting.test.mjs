@@ -122,3 +122,14 @@ test('a perfect cut and braid keep strand and rope quality within the saved rang
     assert(f.game.inventory.ropes[0].quality <= 100);
   } finally { Math.random = previousRandom; }
 });
+
+test('the copper cutter makes an extra strip per leaf, which remains after braiding', () => {
+  const f = workshopFixture(350, 480);
+  f.game.inventory.copperCutter = true;
+  f.workshop.open('bench'); f.select('leaf'); f.cut();
+  assert.equal(f.game.inventory.strips.length, 4);
+  assert.equal(f.game.leaves, 1);
+  f.nodes.get('fiberNext').onclick(); f.braid();
+  assert.equal(f.game.inventory.strips.length, 1);
+  assert.equal(f.game.inventory.ropes.length, 1);
+});

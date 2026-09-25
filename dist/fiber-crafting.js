@@ -73,8 +73,8 @@ export function createFiberCrafting(game,{sound,onInventoryChange,closeBag,canCr
   return Math.max(0,Math.min(1,coverage*.42+(1-Math.min(1,guideError/(height*.12)))*.32+(1-Math.min(1,straightError/(height*.09)))*.26-reverse*.06));
  }
  function finishCut(){
-  if(paths.length!==2)return;const quality=Math.round(paths.reduce((n,p)=>n+p.score,0)/2*100);if(source==='vine')inventory.vine--;else game.leaves--;for(let i=0;i<3;i++)inventory.strips.push(Math.min(100,Math.max(25,quality-i*2+Math.round(Math.random()*4))));
-  sound?.('rustle');status.textContent=`3 prameny hotové, kvalita ${quality} %`;instruction.textContent='Prameny jsou oddělené. Můžeš je rovnou splést do jednoho lana.';reset.hidden=true;next.hidden=false;next.textContent='Splést prameny';next.onclick=()=>setStage('braid');onInventoryChange?.();
+  if(paths.length!==2)return;const quality=Math.round(paths.reduce((n,p)=>n+p.score,0)/2*100),count=inventory.copperCutter?4:3;if(source==='vine')inventory.vine--;else game.leaves--;for(let i=0;i<count;i++)inventory.strips.push(Math.min(100,Math.max(25,quality-i*2+(inventory.copperCutter?5:0)+Math.round(Math.random()*4))));
+  sound?.('rustle');status.textContent=`${count} prameny hotové, kvalita ${quality} %`;instruction.textContent='Prameny jsou oddělené. Můžeš je rovnou splést do jednoho lana.';reset.hidden=true;next.hidden=false;next.textContent='Splést prameny';next.onclick=()=>setStage('braid');onInventoryChange?.();
  }
  function finishBraid(){
   const strandQuality=inventory.strips.splice(0,3),motion=braid.scores.reduce((a,b)=>a+b,0)/braid.scores.length,quality=Math.min(100,Math.round((strandQuality.reduce((a,b)=>a+b,0)/3*.65+motion*100*.35)));inventory.ropes.push({length:1,quality});sound?.('build');status.textContent=`Lano hotové, 1 m, kvalita ${quality} %`;instruction.textContent='Tři prameny jsou spletené. Pokud vyrobíš druhé lano, můžeš oba kusy napojit.';reset.hidden=true;next.hidden=false;next.textContent=inventory.ropes.length>=2?'Napojit dvě lana':'Zavřít dílnu';next.onclick=()=>inventory.ropes.length>=2?setStage('join'):close();onInventoryChange?.();draw();

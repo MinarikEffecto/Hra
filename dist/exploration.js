@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {GROUND,inside,islandRadius,ball,rod,mesh,mat,box} from './world.js?v=21';
-import {createFiberCrafting} from './fiber-crafting.js?v=22';
+import {GROUND,inside,islandRadius,ball,rod,mesh,mat,box} from './world.js?v=23';
+import {createFiberCrafting} from './fiber-crafting.js?v=23';
+import {excavationYield} from './technology.js';
 
 const SEA_LEVEL=-.095;
 const PYRAMID_REVEAL_DEPTH=7;
@@ -87,7 +88,7 @@ export function createExploration(scene,game,{sound,noise}){
  function updateBag(){
   const strips=inventory.strips?.length||0,ropes=inventory.ropes?.length||0,ropeLength=inventory.ropes?.reduce((n,r)=>n+r.length,0)||0,atBench=nearWorkbench();
   const ropeDetail=ropes?inventory.ropes.map(r=>`${r.length} m / ${r.quality} %`).join(' · '):'';
-  const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lana ${ropeLength} m · ${ropeDetail}`:'Lano',ropes,'join'],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
+  const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lana ${ropeLength} m · ${ropeDetail}`:'Lano',ropes,'join'],['🟫','Jíl',inventory.clay],['🪨','Měděná ruda',inventory.ore],['⚫','Dřevěné uhlí',inventory.charcoal],['⬜','Popel',inventory.ash],['🟠','Měděný ingot',inventory.ingot],['✂️','Měděný řezák',Number(inventory.copperCutter)],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
   const signature=JSON.stringify([atBench,entries]);
   if(signature===bagSignature)return;
   bagSignature=signature;
@@ -116,7 +117,7 @@ export function createExploration(scene,game,{sound,noise}){
   if(hole.pyramid){
    const reveal=Math.min(hole.level,PYRAMID_REVEAL_DEPTH)/PYRAMID_REVEAL_DEPTH,target=GROUND-1.87+reveal*1.69;pyramid.userData.targetY=target;
    if(hole.level===2)addLoot('coin',hole.x+.3,hole.z);else if(hole.level===4)addLoot('pearl',hole.x-.25,hole.z+.15);else if(hole.level===PYRAMID_REVEAL_DEPTH){addLoot('relic',hole.x,hole.z-.3);showLoot('🗿 Pyramida odkryta  →  🎒 relikvie');}
-  }else{const r=Math.random(),kind=r<.08?'chest':r<.18?'pearl':r<.45?'coin':r<.72?'shell':null;if(kind)addLoot(kind,hole.x,hole.z);}
+  }else{const r=Math.random(),kind=r<.08?'chest':r<.18?'pearl':r<.45?'coin':r<.72?'shell':null;if(kind)addLoot(kind,hole.x,hole.z);const material=excavationYield(hole.level);if(material){inventory[material]++;showLoot(material==='clay'?'🟫 Jíl +1':'🪨 Měděná ruda +1');updateBag();}}
   game.requestSave?.();
  }
 

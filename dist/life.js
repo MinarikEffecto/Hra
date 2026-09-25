@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import {GROUND,ball,rod,mesh,mat} from './world.js?v=21';
+import {GROUND,ball,rod,mesh,mat} from './world.js?v=23';
 import {Survival} from './survival.js';
 export function createIslandLife(scene,game,{toast,hud,sound,noise,tone,wakeAudio}){
  const state=new Survival(Math.random,game.inventory),$=id=>document.getElementById(id),SEA_LEVEL=-.095;let gust=0,nextGust=12,gustTime=0,lowWarn=false,uiTick=0,animalLootTimer=0;
