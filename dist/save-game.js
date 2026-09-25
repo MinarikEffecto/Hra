@@ -75,7 +75,7 @@ export function validateSave(raw) {
 
   const clean = {
     schemaVersion: SAVE_SCHEMA_VERSION, worldId: SAVE_WORLD_ID, savedAt: new Date(data.savedAt).toISOString(),
-    player: {...pos, y: requireNumber(player.y, 'player.y', -10, 20), heading: requireNumber(player.heading, 'player.heading', -1e6, 1e6)},
+    player: {...pos, y: requireNumber(player.y, 'player.y', -30, 20), heading: requireNumber(player.heading, 'player.heading', -1e6, 1e6)},
     resources: {wood: requireNumber(resources.wood, 'resources.wood', 0, 1e6, true), leaves: requireNumber(resources.leaves, 'resources.leaves', 0, 1e6, true)},
     inventory: {},
     world: {buildings: [], trees: [], bushes: [], holes: [], coconuts: []},

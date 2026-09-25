@@ -110,6 +110,27 @@ test('a felled palm is not resurrected and its resources do not vanish mid-fall'
   assert.equal(after.game.leaves, 6);
 });
 
+test('the deepest permitted ordinary excavation can be saved and restored', () => {
+  const before = freshIsland();
+  const hole = {
+    x: 0, z: 0, level: 50, pyramid: false,
+    depth: .24 * 50 + .035 * Math.max(0, 50 - 4) ** 1.28,
+    radius: .56 + .27 * Math.sqrt(50),
+  };
+  before.exploration.holes.push(hole);
+  before.game.scene.userData.terrain.setHole(hole);
+  const depth = before.game.scene.userData.terrain.heightAt(0, 0);
+  assert(depth < -10, 'deep hole must exercise the former save bound');
+  before.game.player.root.position.set(0, depth, 0);
+  const save = captureGameState(before);
+  assert.equal(save.player.y, depth);
+  const after = freshIsland();
+  applyGameState(after, save);
+  assert.equal(after.exploration.holes[0].level, 50);
+  assert.equal(after.game.player.root.position.y, depth);
+  assert.equal(after.game.scene.userData.terrain.heightAt(0, 0), depth);
+});
+
 test('shot wildlife stays dead and its airborne drops survive save/reload', () => {
   const nodes = new Map();
   const node = id => {
