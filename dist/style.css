@@ -12,7 +12,7 @@ html,body{overscroll-behavior:none;-webkit-user-select:none;user-select:none;-we
 @media(max-width:700px){#survival{top:143px;left:12px;width:220px;padding:10px}#survival button{font-size:14px;padding:7px}#survival #music{width:100%}#toast{top:auto;bottom:280px;z-index:40}#target{width:90%;text-align:center;bottom:230px}#foodCounts{margin:5px 0}header{inset:15px 12px auto}header .brand{max-width:90px}header .eyebrow{display:none}.bag span{display:none}.bag{padding:8px}#timePanel{top:75px}}
 @media(max-height:600px){#survival{top:80px;left:12px;width:230px;padding:8px}#survival>button{width:calc(50% - 3px);font-size:12px}#survival #foodCounts{margin:3px 0}#survival .hunger progress{margin:2px 0}#toast{top:auto;bottom:100px}#target{bottom:12px}#timePanel{top:65px}}
 /* Compact play-first HUD. Icon labels remain available to assistive technology. */
-#toast,#target,.keys,header .brand,.bag span,#hungerLabel,aside>p,aside .panelhead small,.recipe small{display:none!important}
+#target,.keys,header .brand,.bag span,#hungerLabel,aside>p,aside .panelhead small,.recipe small{display:none!important}
 header{inset:max(10px,env(safe-area-inset-top)) 12px auto;justify-content:flex-start}.hud{gap:5px;align-items:center}.bag{display:flex;gap:4px;padding:5px 8px;font-size:15px;border-radius:10px;background:#fff7e2dc;box-shadow:none}.bag b{font-size:14px}#sound{display:none}
 #survival{position:fixed;top:max(10px,env(safe-area-inset-top));left:150px;right:70px;width:auto;display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:10px;box-shadow:none;background:#fff8e2dd;min-height:31px;font-size:13px}
 #survival .hunger{width:48px;flex-shrink:0}#survival .hunger progress{height:6px;margin:0;width:48px;accent-color:#56a771}#survival.hungry .hunger progress{accent-color:#e57545}#survival #foodCounts{font-size:13px;margin:0;white-space:nowrap}#survival button{width:44px;height:44px;margin:0;padding:0;font-size:21px;border-radius:50%;background:#fff8e3dd;box-shadow:none}#survival button:disabled{opacity:.4}#survival #torch[aria-pressed=true],#survival #tool[aria-pressed=true]{background:#f9d591;border-color:#fff}
@@ -37,3 +37,5 @@ footer{left:auto;right:16px;bottom:20px}#buildBtn{width:48px;height:48px;padding
 /* Two-thumb mobile actions: jump stays independent from the held tool action. */
 .touchActions{display:flex;align-items:flex-end;gap:9px;pointer-events:none}.touchActions>button{pointer-events:auto;touch-action:none}.touchActions .jump{width:52px;height:52px;padding:0;border-radius:50%;font-size:23px;background:#e9fbf5d9}.touchActions .jump:active{background:#bdebdc;transform:scale(.95)}
 @media(pointer:coarse) and (max-height:500px){.touchActions{gap:6px}.touchActions .jump{width:48px;height:48px;font-size:21px}}
+
+#toast{z-index:45;opacity:0}

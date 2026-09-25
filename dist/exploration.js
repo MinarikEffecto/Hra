@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import {GROUND,inside,islandRadius,ball,rod,mesh,mat,box} from './world.js?v=21';
-import {createFiberCrafting} from './fiber-crafting.js?v=21';
+import {createFiberCrafting} from './fiber-crafting.js?v=22';
 
 const SEA_LEVEL=-.095;
 const PYRAMID_REVEAL_DEPTH=7;
@@ -45,14 +45,16 @@ export function createExploration(scene,game,{sound,noise}){
  function digTarget(){
   const p=player.root.position,a=player.root.rotation.y,x=p.x+Math.sin(a)*.92,z=p.z+Math.cos(a)*.92;
   const blocked=!inside(x,z,.75)||game.trees.some(t=>t.state!=='gone'&&Math.hypot(t.x-x,t.z-z)<.75)||game.buildings.some(b=>Math.hypot(b.x-x,b.z-z)<1.15);
-  return {x,z,a,valid:!blocked};
+  const pyramid=Math.hypot(x-PYRAMID.x,z-PYRAMID.z)<1.45;
+  const hole=pyramid?holes.find(h=>h.pyramid):nearestHole(x,z);
+  return {x:pyramid?PYRAMID.x:hole?.x??x,z:pyramid?PYRAMID.z:hole?.z??z,a,hole,pyramid,valid:!blocked&&game.grounded};
  }
  function dig(){
   if(game.cooldown>0||digTime>0||!game.grounded)return false;
-  const p=player.root.position,{x,z,a,valid}=digTarget();
+  const p=player.root.position,{x,z,a,valid,pyramid}=digTarget();
   if(!valid)return false;
-  let hole=nearestHole(x,z);const pyramidDistance=Math.hypot(x-PYRAMID.x,z-PYRAMID.z);
-  if(pyramidDistance<1.45){hole=holes.find(h=>h.pyramid);if(!hole){hole={x:PYRAMID.x,z:PYRAMID.z,level:0,pyramid:true,visual:new THREE.Group()};scene.add(hole.visual);holes.push(hole);}}
+  let hole=pyramid?holes.find(h=>h.pyramid):nearestHole(x,z);
+  if(pyramid){if(!hole){hole={x:PYRAMID.x,z:PYRAMID.z,level:0,pyramid:true,visual:new THREE.Group()};scene.add(hole.visual);holes.push(hole);}}
   if(!hole){hole={x,z,level:0,pyramid:false,visual:new THREE.Group()};scene.add(hole.visual);holes.push(hole);}
   game.targetAngle=a;game.cooldown=.82;game.swing=.82;digTime=.82;pending={hole,at:.39,from:new THREE.Vector2(p.x,p.z)};return true;
  }
@@ -80,12 +82,16 @@ export function createExploration(scene,game,{sound,noise}){
  }
  function showLoot(label){$('loot').textContent=`${label}  →  🎒`;$('loot').hidden=false;clearTimeout(showLoot.timer);showLoot.timer=setTimeout(()=>{$('loot').hidden=true;},1800);}
  const nearWorkbench=()=>game.buildings.some(b=>b.type==='workbench'&&Math.hypot(b.x-player.root.position.x,b.z-player.root.position.z)<2);
+ let bagSignature='';
  function updateBag(){
   const strips=inventory.strips?.length||0,ropes=inventory.ropes?.length||0,ropeLength=inventory.ropes?.reduce((n,r)=>n+r.length,0)||0,atBench=nearWorkbench();
   const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lano ${ropeLength} m`:'Lano',ropes,'join'],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
+  const signature=JSON.stringify([atBench,entries]);
+  if(signature===bagSignature)return;
+  bagSignature=signature;
   $('bagContents').innerHTML=entries.map(([icon,name,n,action])=>{const enough=action==='braid'?n>=3:action==='join'?n>=2:n>0,enabled=enough&&atBench;return action?`<button class="bagItem" data-workshop="${action}" ${enabled?'':'disabled'} aria-label="${name}, ${n||0}. ${atBench?'Otevřít výrobu u ponku':'Vyžaduje pracovní ponk'}"><span>${icon}</span><small>${name}${atBench?'':' · u ponku'}</small><b>${n||0}</b></button>`:`<div><span>${icon}</span><small>${name}</small><b>${n||0}</b></div>`}).join('');$('bagTotal').textContent=entries.reduce((n,e)=>n+(e[2]||0),0);
  }
- function toggleBag(open=$('bagPanel').hidden){$('bagPanel').hidden=!open;$('bagBtn').setAttribute('aria-expanded',String(open));}
+ function toggleBag(open=$('bagPanel').hidden){if(open)updateBag();$('bagPanel').hidden=!open;$('bagBtn').setAttribute('aria-expanded',String(open));}
  let lastTouchOpen=0;function openBagWorkshop(e){const item=e.target.closest?.('[data-workshop]');if(!item||item.disabled)return false;e.preventDefault();lastTouchOpen=performance.now();workshop.open(item.dataset.workshop);return true;}
  $('bagBtn').onclick=()=>toggleBag();$('bagClose').onclick=()=>toggleBag(false);$('bagContents').addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')openBagWorkshop(e);});$('bagContents').addEventListener('click',e=>{if(performance.now()-lastTouchOpen>500)openBagWorkshop(e);});workshop=createFiberCrafting(game,{sound,onInventoryChange:()=>{updateBag();$('leaves').textContent=game.leaves;},closeBag:()=>toggleBag(false),canCraft:nearWorkbench});game.openFiberCrafting=action=>workshop.open(action);updateBag();
 
