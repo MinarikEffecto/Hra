@@ -17,7 +17,7 @@ const TOOLS = ['axe', 'shovel', 'shotgun'];
 const MAX_JSON_LENGTH = 2_000_000;
 
 export class SaveGameError extends Error {
-  constructor(message) { super(message); this.name = 'SaveGameError'; }
+  constructor(message, code = 'INVALID_SAVE') { super(message); this.name = 'SaveGameError'; this.code = code; }
 }
 
 function requireObject(value, name) {
@@ -60,7 +60,10 @@ export function validateSave(raw) {
     try { data = JSON.parse(data); } catch { throw new SaveGameError('Uložená hra není platný JSON'); }
   }
   data = requireObject(data, 'save');
-  if (data.schemaVersion !== 1 && data.schemaVersion !== SAVE_SCHEMA_VERSION) throw new SaveGameError('Nepodporovaná verze uložené hry');
+  if (data.schemaVersion !== 1 && data.schemaVersion !== SAVE_SCHEMA_VERSION) {
+    throw new SaveGameError('Nepodporovaná verze uložené hry',
+      typeof data.schemaVersion === 'number' && Number.isFinite(data.schemaVersion) && data.schemaVersion > SAVE_SCHEMA_VERSION ? 'FUTURE_SCHEMA' : 'INVALID_SAVE');
+  }
   const legacy = data.schemaVersion === 1;
   if (data.worldId !== SAVE_WORLD_ID) throw new SaveGameError('Pozice patří do jiné verze ostrova');
   if (typeof data.savedAt !== 'string' || !Number.isFinite(Date.parse(data.savedAt))) throw new SaveGameError('Neplatný čas uložení');
@@ -263,7 +266,8 @@ export function exportSave(raw) { return `${JSON.stringify(validateSave(raw), nu
 // A valid and layout-compatible previous primary is copied to backup before replacement.
 // When loading fell back to an older compatible backup, the next autosave must not replace
 // that last good backup with an incompatible primary.
-export function saveToStorage(storage, raw, {key = SAVE_KEY, backupKey = BACKUP_KEY, isCompatible = () => true} = {}) {
+// A newer primary is protected unless the player explicitly imports a replacement file.
+export function saveToStorage(storage, raw, {key = SAVE_KEY, backupKey = BACKUP_KEY, isCompatible = () => true, overwriteFuture = false} = {}) {
   const save = validateSave(raw);
   const previous = storage.getItem(key);
   if (previous !== null) {
@@ -271,7 +275,9 @@ export function saveToStorage(storage, raw, {key = SAVE_KEY, backupKey = BACKUP_
       const oldSave = validateSave(previous);
       if (isCompatible(oldSave)) storage.setItem(backupKey, JSON.stringify(oldSave));
     }
-    catch (error) { if (!(error instanceof SaveGameError)) throw error; }
+    catch (error) {
+      if (!(error instanceof SaveGameError) || (error.code === 'FUTURE_SCHEMA' && !overwriteFuture)) throw error;
+    }
   }
   storage.setItem(key, JSON.stringify(save));
   return save;
@@ -279,15 +285,19 @@ export function saveToStorage(storage, raw, {key = SAVE_KEY, backupKey = BACKUP_
 
 export function readFromStorage(storage, {key = SAVE_KEY, backupKey = BACKUP_KEY, isCompatible = () => true} = {}) {
   const errors = [];
+  let futurePrimary = false;
   for (const [source, name] of [['primary', key], ['backup', backupKey]]) {
     const raw = storage.getItem(name);
     if (raw === null) continue;
     try {
       const save = validateSave(raw);
       if (!isCompatible(save)) throw new SaveGameError('Rozložení uloženého ostrova neodpovídá této verzi');
-      return {save, source, errors};
+      return {save, source, errors, futurePrimary};
     }
-    catch (error) { errors.push({source, message: error.message}); }
+    catch (error) {
+      if (source === 'primary' && error instanceof SaveGameError && error.code === 'FUTURE_SCHEMA') futurePrimary = true;
+      errors.push({source, message: error.message});
+    }
   }
-  return {save: null, source: null, errors};
+  return {save: null, source: null, errors, futurePrimary};
 }

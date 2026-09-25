@@ -204,6 +204,30 @@ test('malformed and future saves leave a valid stored position intact; backup ca
   assert.equal(primary, JSON.stringify(later));
 });
 
+test('recovering a compatible backup never overwrites a primary from a future schema', () => {
+  const storage = memoryStorage();
+  const backup = captureGameState(freshIsland());
+  const future = structuredClone(backup);
+  future.schemaVersion = SAVE_SCHEMA_VERSION + 1;
+  future.inventory.ingot = 9;
+  const primaryBytes = JSON.stringify(future);
+  const backupBytes = JSON.stringify(backup);
+  storage.setItem('trosechnik.save.v1', primaryBytes);
+  storage.setItem('trosechnik.save.backup.v1', backupBytes);
+
+  const recovered = readFromStorage(storage);
+  assert.equal(recovered.source, 'backup');
+  assert.equal(recovered.futurePrimary, true);
+  assert.deepEqual(recovered.save, backup);
+  assert.throws(() => saveToStorage(storage, recovered.save), SaveGameError);
+  assert.equal(storage.getItem('trosechnik.save.v1'), primaryBytes);
+  assert.equal(storage.getItem('trosechnik.save.backup.v1'), backupBytes);
+
+  // Choosing a valid import file is an explicit replacement of the protected slot.
+  saveToStorage(storage, recovered.save, {overwriteFuture: true});
+  assert.equal(JSON.parse(storage.getItem('trosechnik.save.v1')).schemaVersion, SAVE_SCHEMA_VERSION);
+});
+
 test('wrong island layout is rejected before modifying game state', () => {
   const data = captureGameState(freshIsland());
   data.world.trees.pop();
