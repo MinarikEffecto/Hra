@@ -5,6 +5,7 @@ import {createFiberCrafting} from '../dist/fiber-crafting.js';
 function workshopFixture(canvasWidth, canvasHeight) {
   const nodes = new Map();
   const handlers = new Map();
+  const globalHandlers = new Map();
   const context = new Proxy({createLinearGradient: () => ({addColorStop() {}})}, {
     get(target, key) { return key in target ? target[key] : () => {}; },
     set(target, key, value) { target[key] = value; return true; },
@@ -32,7 +33,7 @@ function workshopFixture(canvasWidth, canvasHeight) {
   globalThis.document = {getElementById: node, body: {classList: {add() {}, remove() {}}}};
   globalThis.devicePixelRatio = 2;
   globalThis.requestAnimationFrame = fn => fn();
-  globalThis.addEventListener = () => {};
+  globalThis.addEventListener = (name, fn) => globalHandlers.set(name, fn);
   const game = {leaves: 2, inventory: {vine: 2, strips: [], ropes: []}, craftingOpen: false};
   let changed = 0;
   const workshop = createFiberCrafting(game, {canCraft: () => true, onInventoryChange: () => changed++});
@@ -56,7 +57,9 @@ function workshopFixture(canvasWidth, canvasHeight) {
   function braid() {
     for (let i = 0; i < 6; i++) drag({x: canvasWidth*(i%2 ? .73 : .27), y: canvasHeight*.8}, {x: canvasWidth*.5, y: canvasHeight*.8});
   }
-  return {nodes, canvas, choices, game, workshop, select, drag, cut, braid, get changed() { return changed; }};
+  return {nodes, canvas, choices, game, workshop, select, drag, cut, braid,
+    resize(width, height) { canvasWidth = width; canvasHeight = height; globalHandlers.get('resize')?.(); },
+    get changed() { return changed; }};
 }
 
 for (const [label, width, height] of [['mobile portrait', 350, 480], ['mobile landscape', 500, 300], ['desktop', 800, 500]]) {
@@ -98,8 +101,14 @@ test('an off-material cut is rejected and orientation change keeps valid partial
   assert.equal(f.nodes.get('fiberStatus').textContent, 'Řez musí vést plynule téměř přes celou délku.');
   f.drag({x: 35, y: height*.43}, {x: 315, y: height*.43});
   assert.match(f.nodes.get('fiberStatus').textContent, /Řezy 1 \/ 2/);
+  f.resize(500, 300);
+  assert.equal(f.canvas.width, 1000);
+  assert.match(f.nodes.get('fiberStatus').textContent, /Řezy 1 \/ 2 · po otočení/);
+  f.drag({x: 50, y: 300*.57}, {x: 450, y: 300*.57});
+  assert.equal(f.game.leaves, 1, 'second cut after resize completes the material');
+  assert.equal(f.game.inventory.strips.length, 3);
   f.workshop.close();
-  assert.equal(f.game.leaves, 2);
+  assert.equal(f.game.leaves, 1);
 });
 
 test('a perfect cut and braid keep strand and rope quality within the saved range', () => {

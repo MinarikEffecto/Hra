@@ -179,6 +179,7 @@ test('malformed and future saves leave a valid stored position intact; backup ca
   assert.deepEqual(recovered.save, first);
   assert.equal(recovered.errors.length, 1);
   assert.throws(() => validateSave({...later, inventory: {...later.inventory, ropes: [{length: -2, quality: 80}]}}), SaveGameError);
+  assert.throws(() => validateSave({...later, player: {...later.player, x: 12.5, z: 12.5}}), SaveGameError);
   assert.equal(primary, JSON.stringify(later));
 });
 
@@ -206,4 +207,11 @@ test('a valid-schema save from an older island layout falls back to the compatib
   assert.equal(result.source, 'backup');
   assert.deepEqual(result.save, compatible);
   assert.equal(result.errors.length, 1);
+  // A later autosave of the restored position must preserve the only compatible backup.
+  const resumed = structuredClone(result.save);
+  resumed.resources.wood = 4;
+  const isCompatible = save => save.world.trees.length === compatible.world.trees.length;
+  saveToStorage(storage, resumed, {isCompatible});
+  assert.deepEqual(validateSave(storage.getItem('trosechnik.save.backup.v1')), compatible);
+  assert.deepEqual(readFromStorage(storage, {isCompatible}).save, resumed);
 });

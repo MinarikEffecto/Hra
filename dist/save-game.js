@@ -66,6 +66,7 @@ export function validateSave(raw) {
   const world = requireObject(data.world, 'world');
   const survival = requireObject(data.survival, 'survival');
   const pos = position(player, 'player');
+  if (Math.hypot(pos.x, pos.z) >= 12.2) throw new SaveGameError('Hráč je mimo hratelnou oblast');
 
   const clean = {
     schemaVersion: SAVE_SCHEMA_VERSION, worldId: SAVE_WORLD_ID, savedAt: new Date(data.savedAt).toISOString(),
@@ -235,12 +236,17 @@ export function applyGameState({game, life, exploration, dayCycle}, raw) {
 export function exportSave(raw) { return `${JSON.stringify(validateSave(raw), null, 2)}\n`; }
 
 // A bad import or an unknown future schema is rejected before touching either storage key.
-// A valid previous primary is copied to backup before replacement; a broken primary never is.
-export function saveToStorage(storage, raw, {key = SAVE_KEY, backupKey = BACKUP_KEY} = {}) {
+// A valid and layout-compatible previous primary is copied to backup before replacement.
+// When loading fell back to an older compatible backup, the next autosave must not replace
+// that last good backup with an incompatible primary.
+export function saveToStorage(storage, raw, {key = SAVE_KEY, backupKey = BACKUP_KEY, isCompatible = () => true} = {}) {
   const save = validateSave(raw);
   const previous = storage.getItem(key);
   if (previous !== null) {
-    try { storage.setItem(backupKey, JSON.stringify(validateSave(previous))); }
+    try {
+      const oldSave = validateSave(previous);
+      if (isCompatible(oldSave)) storage.setItem(backupKey, JSON.stringify(oldSave));
+    }
     catch (error) { if (!(error instanceof SaveGameError)) throw error; }
   }
   storage.setItem(key, JSON.stringify(save));
