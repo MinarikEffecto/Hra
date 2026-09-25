@@ -40,3 +40,5 @@ footer{left:auto;right:16px;bottom:20px}#buildBtn{width:48px;height:48px;padding
 
 #toast{z-index:45;opacity:0}
 #saveControls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:10px}#saveControls button{min-width:0;padding:8px 3px;font-size:11px;box-shadow:none;background:#e9f4e0;border-color:#a8c89e}
+#bagPanel{max-height:calc(100dvh - 112px);overflow-y:auto;overscroll-behavior:contain}
+@media(max-height:520px){#bagPanel{top:54px;max-height:calc(100dvh - 62px)}}

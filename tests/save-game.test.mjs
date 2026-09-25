@@ -4,6 +4,7 @@ import * as THREE from '../dist/vendor/three.module.js';
 import {makeScenery} from '../dist/world.js';
 import {RAPIER, IslandGame, COSTS} from '../dist/simulation.js';
 import {Survival} from '../dist/survival.js';
+import {createIslandLife} from '../dist/life.js';
 import {
   SAVE_SCHEMA_VERSION, SaveGameError, captureGameState, applyGameState,
   validateSave, exportSave, saveToStorage, readFromStorage,
@@ -46,18 +47,23 @@ test('a real island survives a save/reload with inventory, workshop outputs, ben
   game.player.root.position.set(1, .22, -1);
   game.player.root.rotation.y = .4;
   exploration.select(1);
-  exploration.holes.push({x: -1, z: -2, level: 3, pyramid: false});
+  exploration.holes.push({x: -1, z: -2, level: 3, pyramid: false,
+    flood: {height: -.06, sourceX: -1.4, sourceZ: -2.3}});
   life.state.satiety = 69;
   life.state.torch = true;
   life.state.lit = true;
   life.getCoconutCounts = () => game.trees.map((_, i) => i === 0 ? 1 : 3);
   life.getPendingCoconuts = () => 2;
+  life.getPendingAnimalDrops = () => ({feather: 4, meat: 1, shell: 0});
+  life.getWildlifeState = () => ({birds: [false, true, true], creatures: [true, true, false, true]});
   before.dayCycle = {state: {hour: 7.5, speed: .25}};
 
   const saved = captureGameState(before, new Date('2026-09-25T20:00:00.000Z'));
   assert.equal(saved.schemaVersion, SAVE_SCHEMA_VERSION);
   const after = freshIsland();
   after.life.restoreCoconuts = counts => { after.life.coconuts = counts; };
+  after.life.restoreWildlife = saved => { after.life.wildlife = saved; };
+  after.exploration.restoreFloods = holes => { after.exploration.savedFloods = holes; };
   after.dayCycle = {restore(saved) { this.state = saved; }};
   applyGameState(after, exportSave(saved));
   assert.equal(after.game.wood, 3); // 2 held + 1 log awaiting pickup
@@ -66,6 +72,10 @@ test('a real island survives a save/reload with inventory, workshop outputs, ben
   assert.deepEqual(after.game.inventory.strips, [84, 82, 80]);
   assert.equal(after.game.inventory.vine, 3);
   assert.equal(after.game.inventory.coconut, 2);
+  assert.equal(after.game.inventory.feather, 4);
+  assert.equal(after.game.inventory.meat, 1);
+  assert.deepEqual(after.life.wildlife.birds, [false, true, true]);
+  assert.deepEqual(after.life.wildlife.creatures, [true, true, false, true]);
   assert.equal(after.life.coconuts[0], 1);
   assert.equal(after.game.buildings.length, 1);
   assert.equal(after.game.buildings[0].type, 'workbench');
@@ -75,6 +85,7 @@ test('a real island survives a save/reload with inventory, workshop outputs, ben
   assert.equal(after.game.bushes[0].hp, 1);
   assert.equal(after.game.bushes[0].root.scale.x, .9);
   assert.equal(after.exploration.holes[0].level, 3);
+  assert.deepEqual(after.exploration.savedFloods[0].flood, {height: -.06, sourceX: -1.4, sourceZ: -2.3});
   assert(after.game.scene.userData.terrain.heightAt(-1, -2) < .22);
   assert.equal(after.exploration.tool, 'shovel');
   assert.equal(after.life.state.satiety, 69);
@@ -97,6 +108,36 @@ test('a felled palm is not resurrected and its resources do not vanish mid-fall'
   assert.equal(after.game.trees[0].body, null);
   assert.equal(after.game.wood, 5);
   assert.equal(after.game.leaves, 6);
+});
+
+test('shot wildlife stays dead and its airborne drops survive save/reload', () => {
+  const nodes = new Map();
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, {id, classList: {toggle() {}}, setAttribute() {}, after() {}});
+    return nodes.get(id);
+  };
+  globalThis.document = {createElement: () => node(Symbol()), getElementById: node};
+  globalThis.addEventListener = () => {};
+  function withLife() {
+    const island = freshIsland();
+    island.life = createIslandLife(island.game.scene, island.game,
+      {toast() {}, hud() {}, sound() {}, noise() {}, tone() {}, wakeAudio() {}});
+    return island;
+  }
+  const before = withLife();
+  let requested = 0;
+  before.game.requestSave = () => requested++;
+  before.game.shootables[0].onShot();
+  assert.equal(before.game.shootables[0].alive, false);
+  assert.equal(requested, 1);
+  assert.deepEqual(before.life.getPendingAnimalDrops(), {feather: 4, meat: 1, shell: 0});
+  const after = withLife();
+  applyGameState(after, captureGameState(before));
+  assert.equal(after.game.shootables[0].alive, false);
+  assert.equal(after.game.shootables[0].root.visible, false);
+  assert.equal(after.game.inventory.feather, 4);
+  assert.equal(after.game.inventory.meat, 1);
+  assert.deepEqual(after.life.getPendingAnimalDrops(), {feather: 0, meat: 0, shell: 0});
 });
 
 test('a ready fish trap and cooking timer continue after reload', () => {
@@ -149,4 +190,20 @@ test('wrong island layout is rejected before modifying game state', () => {
   assert.equal(after.game.wood, 0);
   assert.equal(after.game.buildings.length, 0);
   assert.equal(after.game.trees[0].state, 'standing');
+});
+
+test('a valid-schema save from an older island layout falls back to the compatible backup', () => {
+  const storage = memoryStorage();
+  const compatible = captureGameState(freshIsland());
+  const differentLayout = structuredClone(compatible);
+  differentLayout.world.trees.pop();
+  differentLayout.world.coconuts.pop();
+  saveToStorage(storage, compatible);
+  saveToStorage(storage, differentLayout);
+  const result = readFromStorage(storage, {
+    isCompatible: save => save.world.trees.length === compatible.world.trees.length,
+  });
+  assert.equal(result.source, 'backup');
+  assert.deepEqual(result.save, compatible);
+  assert.equal(result.errors.length, 1);
 });

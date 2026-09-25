@@ -74,10 +74,16 @@ export function validateSave(raw) {
     inventory: {},
     world: {buildings: [], trees: [], bushes: [], holes: [], coconuts: []},
     clock: {hour: requireNumber(requireObject(data.clock, 'clock').hour, 'clock.hour', 0, 24), speed: requireChoice(data.clock.speed, [0, .25, 1, 4], 'clock.speed')},
-    survival: {satiety: requireNumber(survival.satiety, 'survival.satiety', 0, 100), torch: requireBoolean(survival.torch, 'survival.torch'), lit: requireBoolean(survival.lit, 'survival.lit'), traps: [], cooking: null},
+    survival: {satiety: requireNumber(survival.satiety, 'survival.satiety', 0, 100), torch: requireBoolean(survival.torch, 'survival.torch'), lit: requireBoolean(survival.lit, 'survival.lit'), traps: [], cooking: null, wildlife: null},
     exploration: {tool: requireChoice(requireObject(data.exploration, 'exploration').tool, TOOLS, 'exploration.tool')},
   };
   if (clean.survival.lit && !clean.survival.torch) throw new SaveGameError('Rozsvícená louč musí existovat');
+  const wildlife = requireObject(survival.wildlife, 'survival.wildlife');
+  const birds = requireArray(wildlife.birds, 'survival.wildlife.birds', 3);
+  const creatures = requireArray(wildlife.creatures, 'survival.wildlife.creatures', 4);
+  if (birds.length !== 3 || creatures.length !== 4) throw new SaveGameError('Nesprávný počet zvířat');
+  clean.survival.wildlife = {birds: birds.map((v,i) => requireBoolean(v, `survival.wildlife.birds[${i}]`)),
+    creatures: creatures.map((v,i) => requireBoolean(v, `survival.wildlife.creatures[${i}]`))};
   for (const key of COUNTERS) clean.inventory[key] = requireNumber(inventory[key], `inventory.${key}`, 0, 1e6, true);
   clean.inventory.strips = requireArray(inventory.strips, 'inventory.strips', 10000)
     .map((n, i) => requireNumber(n, `inventory.strips[${i}]`, 0, 100));
@@ -104,7 +110,11 @@ export function validateSave(raw) {
   if (clean.world.coconuts.length !== clean.world.trees.length) throw new SaveGameError('Počet kokosů neodpovídá palmám');
   clean.world.holes = requireArray(world.holes, 'world.holes', 100).map((entry, i) => {
     const h = requireObject(entry, `world.holes[${i}]`);
-    return {...position(h, `world.holes[${i}]`), level: requireNumber(h.level, `world.holes[${i}].level`, 1, 50, true), pyramid: requireBoolean(h.pyramid, `world.holes[${i}].pyramid`)};
+    const flood = h.flood === null ? null : requireObject(h.flood, `world.holes[${i}].flood`);
+    return {...position(h, `world.holes[${i}]`), level: requireNumber(h.level, `world.holes[${i}].level`, 1, 50, true), pyramid: requireBoolean(h.pyramid, `world.holes[${i}].pyramid`),
+      flood: flood ? {height: requireNumber(flood.height, `world.holes[${i}].flood.height`, -30, .5),
+        sourceX: requireNumber(flood.sourceX, `world.holes[${i}].flood.sourceX`, -12.5, 12.5),
+        sourceZ: requireNumber(flood.sourceZ, `world.holes[${i}].flood.sourceZ`, -12.5, 12.5)} : null};
   });
   for (const [i, item] of requireArray(survival.traps, 'survival.traps', 100).entries()) {
     const t = requireObject(item, `survival.traps[${i}]`);
@@ -126,6 +136,7 @@ export function captureGameState({game, life, exploration, dayCycle}, now = new 
   const state = life.state ?? life;
   const inventory = Object.fromEntries(COUNTERS.map(key => [key, game.inventory[key] ?? 0]));
   inventory.coconut += life.getPendingCoconuts?.() ?? 0;
+  for (const [kind, count] of Object.entries(life.getPendingAnimalDrops?.() ?? {})) inventory[kind] += count;
   inventory.strips = [...(game.inventory.strips ?? [])];
   inventory.ropes = (game.inventory.ropes ?? []).map(r => ({length: r.length, quality: r.quality}));
   const falling = game.trees.filter(t => t.state === 'falling').length;
@@ -144,8 +155,10 @@ export function captureGameState({game, life, exploration, dayCycle}, now = new 
       trees: game.trees.map(t => ({hp: t.state === 'standing' ? t.hp : 0, state: t.state === 'standing' ? 'standing' : 'gone'})),
       bushes: game.bushes.map(b => ({hp: b.state === 'standing' ? b.hp : 0, state: b.state === 'standing' ? 'standing' : 'gone'})),
       coconuts: life.getCoconutCounts?.() ?? game.trees.map(() => 3),
-      holes: exploration.holes.map(h => ({x: h.x, z: h.z, level: h.level, pyramid: !!h.pyramid})).filter(h => h.level > 0)},
+      holes: exploration.holes.map(h => ({x: h.x, z: h.z, level: h.level, pyramid: !!h.pyramid,
+        flood: h.flood ? {height: h.flood.height, sourceX: h.flood.sourceX, sourceZ: h.flood.sourceZ} : null})).filter(h => h.level > 0)},
     survival: {satiety: state.satiety, torch: state.torch, lit: state.lit,
+      wildlife: life.getWildlifeState?.() ?? {birds: [true,true,true], creatures: [true,true,true,true]},
       traps: [...state.traps].map(([b, s]) => ({buildingIndex: buildingIndex(b), wait: s.wait, catch: s.catch})),
       cooking: state.cooking ? {buildingIndex: buildingIndex(state.cooking.fire), kind: state.cooking.kind, remaining: state.cooking.remaining} : null},
     exploration: {tool: exploration.tool},
@@ -204,8 +217,9 @@ export function applyGameState({game, life, exploration, dayCycle}, raw) {
     terrain.setHole(hole);
     if (h.pyramid && exploration.pyramid) exploration.pyramid.userData.targetY = GROUND - 1.87 + Math.min(h.level, 7) / 7 * 1.69;
   }
-  exploration.restoreFloods?.();
+  exploration.restoreFloods?.(save.world.holes);
   state.satiety = save.survival.satiety;
+  life.restoreWildlife?.(save.survival.wildlife);
   state.torch = save.survival.torch;
   state.lit = save.survival.lit;
   state.traps.clear();
@@ -233,12 +247,16 @@ export function saveToStorage(storage, raw, {key = SAVE_KEY, backupKey = BACKUP_
   return save;
 }
 
-export function readFromStorage(storage, {key = SAVE_KEY, backupKey = BACKUP_KEY} = {}) {
+export function readFromStorage(storage, {key = SAVE_KEY, backupKey = BACKUP_KEY, isCompatible = () => true} = {}) {
   const errors = [];
   for (const [source, name] of [['primary', key], ['backup', backupKey]]) {
     const raw = storage.getItem(name);
     if (raw === null) continue;
-    try { return {save: validateSave(raw), source, errors}; }
+    try {
+      const save = validateSave(raw);
+      if (!isCompatible(save)) throw new SaveGameError('Rozložení uloženého ostrova neodpovídá této verzi');
+      return {save, source, errors};
+    }
     catch (error) { errors.push({source, message: error.message}); }
   }
   return {save: null, source: null, errors};

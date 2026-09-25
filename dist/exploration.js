@@ -47,7 +47,7 @@ export function createExploration(scene,game,{sound,noise}){
   const blocked=!inside(x,z,.75)||game.trees.some(t=>t.state!=='gone'&&Math.hypot(t.x-x,t.z-z)<.75)||game.buildings.some(b=>Math.hypot(b.x-x,b.z-z)<1.15);
   const pyramid=Math.hypot(x-PYRAMID.x,z-PYRAMID.z)<1.45;
   const hole=pyramid?holes.find(h=>h.pyramid):nearestHole(x,z);
-  return {x:pyramid?PYRAMID.x:hole?.x??x,z:pyramid?PYRAMID.z:hole?.z??z,a,hole,pyramid,valid:!blocked&&game.grounded};
+  return {x:pyramid?PYRAMID.x:hole?.x??x,z:pyramid?PYRAMID.z:hole?.z??z,a,hole,pyramid,valid:!blocked&&game.grounded&&(!hole||hole.level<50)&&(hole||holes.length<100)};
  }
  function dig(){
   if(game.cooldown>0||digTime>0||!game.grounded)return false;
@@ -85,7 +85,8 @@ export function createExploration(scene,game,{sound,noise}){
  let bagSignature='';
  function updateBag(){
   const strips=inventory.strips?.length||0,ropes=inventory.ropes?.length||0,ropeLength=inventory.ropes?.reduce((n,r)=>n+r.length,0)||0,atBench=nearWorkbench();
-  const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lano ${ropeLength} m`:'Lano',ropes,'join'],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
+  const ropeDetail=ropes?inventory.ropes.map(r=>`${r.length} m / ${r.quality} %`).join(' · '):'';
+  const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lana ${ropeLength} m · ${ropeDetail}`:'Lano',ropes,'join'],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
   const signature=JSON.stringify([atBench,entries]);
   if(signature===bagSignature)return;
   bagSignature=signature;
@@ -118,7 +119,7 @@ export function createExploration(scene,game,{sound,noise}){
   game.requestSave?.();
  }
 
- return {dig,select,get tool(){return tool},inventory,holes,floods,pyramid,restoreFloods(){for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
+ return {dig,select,get tool(){return tool},inventory,holes,floods,pyramid,restoreFloods(savedHoles=[]){savedHoles.forEach((saved,i)=>{if(saved.flood&&holes[i])startFlood(holes[i],saved.flood.sourceX,saved.flood.sourceZ,saved.flood.height);});for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
   const marker=digTarget();digMarker.visible=tool==='shovel'&&!game.craftingOpen;if(digMarker.visible){digMarker.position.set(marker.x,terrain.heightAt(marker.x,marker.z)+.028,marker.z);digMarkerMaterial.color.set(marker.valid?0xffefad:0xf06f61);digMarker.scale.setScalar(.96+Math.sin(game.elapsed*5)*.04);}
   if(pending){pending.at-=dt;if(pending.at<=0){uncover(pending);pending=null;}}digTime=Math.max(0,digTime-dt);gunTime=Math.max(0,gunTime-dt);muzzle.visible=gunTime>.2;const moving=game.walk!==0;walkBlend=THREE.MathUtils.damp(walkBlend,moving?1:0,9,dt);const t=game.elapsed;
   player.body.rotation.z=Math.sin(game.walk)*.045*walkBlend;player.body.rotation.y=Math.sin(game.walk)*.05*walkBlend;player.body.position.y=Math.abs(Math.sin(game.walk))*.045*walkBlend+Math.sin(t*2.1)*.009;player.body.scale.y=1+Math.sin(t*2.1)*.008;player.body.rotation.x=game.swimming?.42:digTime?Math.sin((.82-digTime)/.82*Math.PI)*.42:game.swing?Math.sin((.5-game.swing)/.5*Math.PI)*.09:walkBlend*.045;

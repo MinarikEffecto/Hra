@@ -101,3 +101,15 @@ test('an off-material cut is rejected and orientation change keeps valid partial
   f.workshop.close();
   assert.equal(f.game.leaves, 2);
 });
+
+test('a perfect cut and braid keep strand and rope quality within the saved range', () => {
+  const previousRandom = Math.random;
+  Math.random = () => .9999;
+  try {
+    const f = workshopFixture(350, 480);
+    f.workshop.open('bench'); f.select('leaf'); f.cut();
+    assert(f.game.inventory.strips.every(q => q >= 0 && q <= 100));
+    f.nodes.get('fiberNext').onclick(); f.braid();
+    assert(f.game.inventory.ropes[0].quality <= 100);
+  } finally { Math.random = previousRandom; }
+});
