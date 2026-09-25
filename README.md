@@ -22,7 +22,9 @@ Pak otevřete `http://localhost:8000`. Hru je potřeba otevřít přes HTTP serv
 
 ## Další verze
 
-Tento repozitář je výchozí místo pro změny hry. Upravujte soubory v `dist/` a změny ukládejte do Gitu. Současná veřejná hra běží na [ChatGPT Sites](https://trosechnik-tropicky-ostrov.minarik625722.chatgpt.site); samotný commit na GitHubu ji automaticky neaktualizuje. Při vydání další verze je potřeba změny z tohoto repozitáře také publikovat do existujícího projektu Sites.
+Tento repozitář je hlavní zdroj pro další vývoj hry. Podrobný postup je v **[Průvodci vývojem hry](docs/VYVOJ-HRY.md)**. Pravidla pro další práci AI asistenta jsou v [AGENTS.md](AGENTS.md).
+
+Upravujte soubory v `dist/` a změny ukládejte do Gitu. Hratelná verze je na [ChatGPT Sites](https://trosechnik-tropicky-ostrov.minarik625722.chatgpt.site); samotný commit na GitHubu ji automaticky neaktualizuje. Při vydání další verze je potřeba změny z tohoto repozitáře také publikovat do existujícího projektu Sites.
 
 ## Použité zdroje
 
