@@ -1,13 +1,17 @@
 import * as THREE from './vendor/three.module.js';
-import {GROUND, makeBuilding} from './world.js';
+import {GROUND, makeBuilding} from './world.js?v=23';
 import {RAPIER, COSTS} from './simulation.js';
+import {TECH_RECIPES} from './technology.js';
 
-export const SAVE_SCHEMA_VERSION = 1;
+export const SAVE_SCHEMA_VERSION = 2;
 export const SAVE_WORLD_ID = 'trosechnik-maly-ostrov-1';
+// Keep the original slot names so existing browser positions remain discoverable.
 export const SAVE_KEY = 'trosechnik.save.v1';
 export const BACKUP_KEY = 'trosechnik.save.backup.v1';
 
-const COUNTERS = ['coconut', 'fish', 'seafood', 'cooked', 'shell', 'coin', 'pearl', 'chest', 'relic', 'feather', 'meat', 'vine'];
+const LEGACY_COUNTERS = ['coconut', 'fish', 'seafood', 'cooked', 'shell', 'coin', 'pearl', 'chest', 'relic', 'feather', 'meat', 'vine'];
+const NEW_COUNTERS = ['clay', 'ore', 'charcoal', 'ash', 'ingot'];
+const COUNTERS = [...LEGACY_COUNTERS, ...NEW_COUNTERS];
 const TREE_STATES = ['standing', 'gone'];
 const TOOLS = ['axe', 'shovel', 'shotgun'];
 const MAX_JSON_LENGTH = 2_000_000;
@@ -56,7 +60,8 @@ export function validateSave(raw) {
     try { data = JSON.parse(data); } catch { throw new SaveGameError('Uložená hra není platný JSON'); }
   }
   data = requireObject(data, 'save');
-  if (data.schemaVersion !== SAVE_SCHEMA_VERSION) throw new SaveGameError('Nepodporovaná verze uložené hry');
+  if (data.schemaVersion !== 1 && data.schemaVersion !== SAVE_SCHEMA_VERSION) throw new SaveGameError('Nepodporovaná verze uložené hry');
+  const legacy = data.schemaVersion === 1;
   if (data.worldId !== SAVE_WORLD_ID) throw new SaveGameError('Pozice patří do jiné verze ostrova');
   if (typeof data.savedAt !== 'string' || !Number.isFinite(Date.parse(data.savedAt))) throw new SaveGameError('Neplatný čas uložení');
 
@@ -77,6 +82,7 @@ export function validateSave(raw) {
     clock: {hour: requireNumber(requireObject(data.clock, 'clock').hour, 'clock.hour', 0, 24), speed: requireChoice(data.clock.speed, [0, .25, 1, 4], 'clock.speed')},
     survival: {satiety: requireNumber(survival.satiety, 'survival.satiety', 0, 100), torch: requireBoolean(survival.torch, 'survival.torch'), lit: requireBoolean(survival.lit, 'survival.lit'), traps: [], cooking: null, wildlife: null},
     exploration: {tool: requireChoice(requireObject(data.exploration, 'exploration').tool, TOOLS, 'exploration.tool')},
+    technology: {job: null},
   };
   if (clean.survival.lit && !clean.survival.torch) throw new SaveGameError('Rozsvícená louč musí existovat');
   const wildlife = requireObject(survival.wildlife, 'survival.wildlife');
@@ -85,7 +91,9 @@ export function validateSave(raw) {
   if (birds.length !== 3 || creatures.length !== 4) throw new SaveGameError('Nesprávný počet zvířat');
   clean.survival.wildlife = {birds: birds.map((v,i) => requireBoolean(v, `survival.wildlife.birds[${i}]`)),
     creatures: creatures.map((v,i) => requireBoolean(v, `survival.wildlife.creatures[${i}]`))};
-  for (const key of COUNTERS) clean.inventory[key] = requireNumber(inventory[key], `inventory.${key}`, 0, 1e6, true);
+  for (const key of LEGACY_COUNTERS) clean.inventory[key] = requireNumber(inventory[key], `inventory.${key}`, 0, 1e6, true);
+  for (const key of NEW_COUNTERS) clean.inventory[key] = legacy ? 0 : requireNumber(inventory[key], `inventory.${key}`, 0, 1e6, true);
+  clean.inventory.copperCutter = legacy ? false : requireBoolean(inventory.copperCutter, 'inventory.copperCutter');
   clean.inventory.strips = requireArray(inventory.strips, 'inventory.strips', 10000)
     .map((n, i) => requireNumber(n, `inventory.strips[${i}]`, 0, 100));
   clean.inventory.ropes = requireArray(inventory.ropes, 'inventory.ropes', 10000).map((entry, i) => {
@@ -95,7 +103,7 @@ export function validateSave(raw) {
 
   clean.world.buildings = requireArray(world.buildings, 'world.buildings', 100).map((entry, i) => {
     const b = requireObject(entry, `world.buildings[${i}]`);
-    return {...position(b, `world.buildings[${i}]`), type: requireChoice(b.type, Object.keys(COSTS), `world.buildings[${i}].type`), rotation: requireNumber(b.rotation, `world.buildings[${i}].rotation`, -1e6, 1e6)};
+    return {...position(b, `world.buildings[${i}]`), type: requireChoice(b.type, legacy ? Object.keys(COSTS).filter(type => type !== 'furnace') : Object.keys(COSTS), `world.buildings[${i}].type`), rotation: requireNumber(b.rotation, `world.buildings[${i}].rotation`, -1e6, 1e6)};
   });
   for (const kind of ['trees', 'bushes']) {
     clean.world[kind] = requireArray(world[kind], `world.${kind}`, 100).map((entry, i) => {
@@ -129,10 +137,20 @@ export function validateSave(raw) {
     if (clean.world.buildings[buildingIndex].type !== 'fire') throw new SaveGameError('Vaření vyžaduje ohniště');
     clean.survival.cooking = {buildingIndex, kind: requireChoice(c.kind, ['fish', 'seafood'], 'survival.cooking.kind'), remaining: requireNumber(c.remaining, 'survival.cooking.remaining', 0, 8)};
   }
+  if (!legacy) {
+    const tech = requireObject(data.technology, 'technology');
+    if (tech.job !== null) {
+      const job = requireObject(tech.job, 'technology.job');
+      const kind = requireChoice(job.kind, Object.keys(TECH_RECIPES), 'technology.job.kind');
+      const buildingIndex = requireNumber(job.buildingIndex, 'technology.job.buildingIndex', 0, clean.world.buildings.length - 1, true);
+      if (clean.world.buildings[buildingIndex].type !== TECH_RECIPES[kind].station) throw new SaveGameError('Výroba vyžaduje správnou stanici');
+      clean.technology.job = {kind, buildingIndex, remaining: requireNumber(job.remaining, 'technology.job.remaining', 0, TECH_RECIPES[kind].seconds)};
+    }
+  }
   return clean;
 }
 
-export function captureGameState({game, life, exploration, dayCycle}, now = new Date()) {
+export function captureGameState({game, life, exploration, dayCycle, technology}, now = new Date()) {
   if (!game || !life || !exploration) throw new SaveGameError('K uložení chybí herní stav');
   const state = life.state ?? life;
   const inventory = Object.fromEntries(COUNTERS.map(key => [key, game.inventory[key] ?? 0]));
@@ -140,6 +158,7 @@ export function captureGameState({game, life, exploration, dayCycle}, now = new 
   for (const [kind, count] of Object.entries(life.getPendingAnimalDrops?.() ?? {})) inventory[kind] += count;
   inventory.strips = [...(game.inventory.strips ?? [])];
   inventory.ropes = (game.inventory.ropes ?? []).map(r => ({length: r.length, quality: r.quality}));
+  inventory.copperCutter = game.inventory.copperCutter ?? false;
   const falling = game.trees.filter(t => t.state === 'falling').length;
   const buildings = game.buildings.map(b => ({type: b.type, x: b.x, z: b.z, rotation: b.visual.rotation.y}));
   const buildingIndex = b => game.buildings.indexOf(b);
@@ -163,6 +182,7 @@ export function captureGameState({game, life, exploration, dayCycle}, now = new 
       traps: [...state.traps].map(([b, s]) => ({buildingIndex: buildingIndex(b), wait: s.wait, catch: s.catch})),
       cooking: state.cooking ? {buildingIndex: buildingIndex(state.cooking.fire), kind: state.cooking.kind, remaining: state.cooking.remaining} : null},
     exploration: {tool: exploration.tool},
+    technology: {job: technology?.job ? {kind: technology.job.kind, buildingIndex: buildingIndex(technology.job.building), remaining: technology.job.remaining} : null},
   };
   return validateSave(result);
 }
@@ -172,19 +192,20 @@ function restoreBuilding(game, data) {
   visual.position.set(data.x, GROUND, data.z);
   visual.rotation.y = data.rotation;
   game.scene.add(visual);
-  const building = {type: data.type, x: data.x, z: data.z, visual, collisionRadius: data.type === 'workbench' ? .95 : undefined};
+  const building = {type: data.type, x: data.x, z: data.z, visual, collisionRadius: ['workbench', 'furnace'].includes(data.type) ? .95 : undefined};
   game.buildings.push(building);
   const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(data.x, GROUND + .2, data.z));
-  game.world.createCollider(RAPIER.ColliderDesc.cylinder(.2, data.type === 'shelter' ? .8 : data.type === 'workbench' ? .72 : .45), body);
+  game.world.createCollider(RAPIER.ColliderDesc.cylinder(.2, data.type === 'shelter' ? .8 : ['workbench', 'furnace'].includes(data.type) ? .72 : .45), body);
   return building;
 }
 
 // Apply to a newly initialized IslandGame, after exploration and life have been created.
 // Validate the complete file and world layout before any in-memory state is changed.
-export function applyGameState({game, life, exploration, dayCycle}, raw) {
+export function applyGameState({game, life, exploration, dayCycle, technology}, raw) {
   const save = validateSave(raw);
   if (!game || !life || !exploration || game.buildings.length || exploration.holes.length ||
       game.trees.length !== save.world.trees.length || game.bushes.length !== save.world.bushes.length ||
+      (save.technology.job && !technology) ||
       (save.exploration.tool !== exploration.tool && typeof exploration.select !== 'function')) {
     throw new SaveGameError('Uložená pozice neodpovídá čistě spuštěnému ostrovu');
   }
@@ -194,6 +215,7 @@ export function applyGameState({game, life, exploration, dayCycle}, raw) {
   for (const key of COUNTERS) game.inventory[key] = save.inventory[key];
   game.inventory.strips = [...save.inventory.strips];
   game.inventory.ropes = save.inventory.ropes.map(r => ({...r}));
+  game.inventory.copperCutter = save.inventory.copperCutter;
   game.player.root.position.set(save.player.x, save.player.y, save.player.z);
   game.player.root.rotation.y = save.player.heading;
   game.targetAngle = save.player.heading;
@@ -208,6 +230,8 @@ export function applyGameState({game, life, exploration, dayCycle}, raw) {
   }
   life.restoreCoconuts?.(save.world.coconuts);
   for (const b of save.world.buildings) restoreBuilding(game, b);
+  if (technology) technology.job = save.technology.job ? {kind: save.technology.job.kind,
+    building: game.buildings[save.technology.job.buildingIndex], remaining: save.technology.job.remaining} : null;
   const terrain = game.scene.userData.terrain;
   for (const h of save.world.holes) {
     const hole = {x: h.x, z: h.z, level: h.level, pyramid: h.pyramid, visual: new THREE.Group(),
