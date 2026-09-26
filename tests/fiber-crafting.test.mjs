@@ -133,3 +133,35 @@ test('the copper cutter makes an extra strip per leaf, which remains after braid
   assert.equal(f.game.inventory.strips.length, 1);
   assert.equal(f.game.inventory.ropes.length, 1);
 });
+
+test('the first mouse selection works immediately after a fast page load', () => {
+  const originalPerformance = globalThis.performance;
+  globalThis.performance = {now: () => 100};
+  try {
+    const f = workshopFixture(800, 500);
+    f.workshop.open('bench');
+    f.select('leaf', 'mouse');
+    assert.equal(f.canvas.hidden, false, 'a mouse click with no preceding touch must select material');
+    f.cut();
+    assert.equal(f.game.leaves, 1);
+    assert.equal(f.game.inventory.strips.length, 3);
+    f.workshop.close(); f.workshop.open('bench'); f.select('vine', 'mouse');
+    assert.equal(f.canvas.hidden, false, 'two mouse clicks must not suppress each other');
+    f.cut(); assert.equal(f.game.inventory.vine, 1);
+  } finally {
+    globalThis.performance = originalPerformance;
+  }
+});
+
+test('touch actions advance after cutting without waiting for a synthesized click', () => {
+  const f = workshopFixture(366, 270);
+  const tap = id => f.nodes.get(id).dispatch('pointerup', {pointerType: 'touch', preventDefault() {}});
+  f.workshop.open('bench'); f.select('leaf'); f.cut();
+  tap('fiberNext'); f.braid();
+  assert.equal(f.game.inventory.ropes.length, 1);
+  let stopped = false;
+  f.nodes.get('fiberNext').dispatch('click', {preventDefault() {}, stopImmediatePropagation() { stopped = true; }});
+  assert.equal(stopped, true, 'the compatibility click cannot also close the just-finished stage');
+  tap('fiberClose');
+  assert.equal(f.workshop.isOpen, false);
+});

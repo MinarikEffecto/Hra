@@ -98,7 +98,14 @@ export function createFiberCrafting(game,{sound,onInventoryChange,closeBag,canCr
   draw();
  }
  canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',e=>{if(e.pointerId===pointerId){pointerId=null;activePath=null;if(braid)braid.dragging=null;if(join)join.dragging=null;draw();}});
- let lastChoiceTouch=0;function chooseMaterial(e){const button=e.target.closest?.('[data-fiber-action]');if(!button||button.disabled)return;e.preventDefault();lastChoiceTouch=performance.now();const action=button.dataset.fiberAction;source=action==='vine'?'vine':'leaf';setStage(action==='braid'?'braid':action==='join'?'join':'cut');}
- choices.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')chooseMaterial(e);});choices.addEventListener('click',e=>{if(performance.now()-lastChoiceTouch>500)chooseMaterial(e);});reset.onclick=()=>setStage(stage);$('fiberClose').onclick=close;addEventListener('resize',()=>{if(!overlay.hidden&&stage!=='select')resize();});addEventListener('keydown',e=>{if(!overlay.hidden&&e.key==='Escape'){e.preventDefault();close();}});
+ let lastChoiceTouch=-Infinity;function chooseMaterial(e){const button=e.target.closest?.('[data-fiber-action]');if(!button||button.disabled)return;e.preventDefault();const action=button.dataset.fiberAction;source=action==='vine'?'vine':'leaf';setStage(action==='braid'?'braid':action==='join'?'join':'cut');}
+ choices.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse'){lastChoiceTouch=performance.now();chooseMaterial(e);}});choices.addEventListener('click',e=>{if(performance.now()-lastChoiceTouch>500)chooseMaterial(e);});reset.onclick=()=>setStage(stage);$('fiberClose').onclick=close;addEventListener('resize',()=>{if(!overlay.hidden&&stage!=='select')resize();});addEventListener('keydown',e=>{if(!overlay.hidden&&e.key==='Escape'){e.preventDefault();close();}});
+ // Some touch browsers suppress the compatibility click following a captured
+ // canvas gesture. Run control actions on release and ignore only its duplicate.
+ for(const button of [next,reset,$('fiberClose')]){
+  let lastTouch=-Infinity;
+  button.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||button.disabled||button.hidden)return;e.preventDefault();lastTouch=performance.now();button.onclick?.(e);});
+  button.addEventListener('click',e=>{if(performance.now()-lastTouch<500){e.preventDefault();e.stopImmediatePropagation();}},true);
+ }
  return {open,close,get isOpen(){return !overlay.hidden;}};
 }
