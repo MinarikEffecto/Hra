@@ -65,6 +65,8 @@ test('v1 migration preserves the old position and v2 rejects malformed jobs befo
   const ctx = island();
   ctx.game.inventory.vine = 2; ctx.game.inventory.ropes.push({length: 2, quality: 76});
   const v2 = captureGameState(ctx);
+  v2.schemaVersion = 2;
+  delete v2.world.layout;
   const v1 = structuredClone(v2);
   v1.schemaVersion = 1;
   for (const key of ['clay', 'ore', 'charcoal', 'ash', 'ingot', 'copperCutter']) delete v1.inventory[key];
@@ -82,7 +84,7 @@ test('v1 migration preserves the old position and v2 rejects malformed jobs befo
   const storage = {getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value)};
   assert.deepEqual(readFromStorage(storage).save, migrated);
   saveToStorage(storage, captureGameState(restored));
-  assert.equal(JSON.parse(storage.getItem(SAVE_KEY)).schemaVersion, 2);
+  assert.equal(JSON.parse(storage.getItem(SAVE_KEY)).schemaVersion, SAVE_SCHEMA_VERSION);
   assert.deepEqual(JSON.parse(storage.getItem(BACKUP_KEY)), migrated);
   assert.throws(() => validateSave({...v1, inventory: {...v1.inventory, vine: -1}}), SaveGameError);
   assert.throws(() => validateSave({...v2, technology: {job: {kind: 'copper', buildingIndex: 0, remaining: 8}}}), SaveGameError);
@@ -101,8 +103,11 @@ test('mid-job save/reload resumes smelting with inputs already spent and one fin
   before.technology.tick(3);
   const saved = captureGameState(before);
   assert.deepEqual(saved.technology.job, {kind: 'copper', buildingIndex: 1, remaining: 5});
+  const olderV2 = structuredClone(saved);
+  olderV2.schemaVersion = 2;
+  delete olderV2.world.layout;
   const after = island();
-  applyGameState(after, JSON.stringify(saved));
+  applyGameState(after, JSON.stringify(olderV2));
   assert.equal(after.technology.job.building, after.game.buildings[1]);
   assert.deepEqual([after.game.inventory.ore, after.game.inventory.charcoal, after.game.inventory.ingot], [0, 0, 0]);
   assert.equal(after.technology.tick(4), false);

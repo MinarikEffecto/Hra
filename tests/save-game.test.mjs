@@ -7,7 +7,7 @@ import {DRIFTWOOD_POSITION, DRIFTWOOD_RESPAWN_SECONDS, DRIFTWOOD_WOOD} from '../
 import {Survival} from '../dist/survival.js';
 import {createIslandLife} from '../dist/life.js';
 import {
-  SAVE_SCHEMA_VERSION, SaveGameError, captureGameState, applyGameState,
+  SAVE_SCHEMA_VERSION, SaveGameError, captureGameState, applyGameState, isSaveCompatibleWithIsland,
   validateSave, exportSave, saveToStorage, readFromStorage,
 } from '../dist/save-game.js';
 
@@ -75,6 +75,8 @@ test('a real island survives a save/reload with inventory, workshop outputs, ben
 
   const saved = captureGameState(before, new Date('2026-09-25T20:00:00.000Z'));
   assert.equal(saved.schemaVersion, SAVE_SCHEMA_VERSION);
+  assert.deepEqual(saved.world.layout.trees[0], [Math.round(game.trees[0].x * 1000), Math.round(game.trees[0].z * 1000)]);
+  assert.deepEqual(saved.world.layout.bushes[0], [Math.round(game.bushes[0].x * 1000), Math.round(game.bushes[0].z * 1000)]);
   const after = freshIsland();
   after.life.restoreCoconuts = counts => { after.life.coconuts = counts; };
   after.life.restoreWildlife = saved => { after.life.wildlife = saved; };
@@ -189,6 +191,7 @@ test('shore driftwood is collected by approach, waits through save/reload, then 
 test('v1 and older v2 positions start with a pickup; malformed cooldown is rejected', () => {
   const old = captureGameState(freshIsland());
   delete old.world.driftwood;
+  delete old.world.layout;
   for (const schemaVersion of [1, 2]) {
     const input = {...old, schemaVersion};
     const migrated = validateSave(input);
@@ -316,12 +319,103 @@ test('wrong island layout is rejected before modifying game state', () => {
   assert.equal(after.game.trees[0].state, 'standing');
 });
 
+test('same-count palm or bush reorder is rejected before changing player, inventory, or world', () => {
+  const source = freshIsland();
+  source.game.player.root.position.set(2, .22, 3);
+  source.game.wood = 7;
+  source.game.trees[0].hp = 0;
+  source.game.trees[0].state = 'gone';
+  source.game.bushes[0].hp = 0;
+  source.game.bushes[0].state = 'gone';
+  const saved = captureGameState(source);
+  assert.deepEqual(validateSave(exportSave(saved)).world.layout, saved.world.layout);
+
+  for (const kind of ['trees', 'bushes']) {
+    const target = freshIsland();
+    [target.game[kind][0], target.game[kind][1]] = [target.game[kind][1], target.game[kind][0]];
+    assert.equal(isSaveCompatibleWithIsland(saved, target.game), false);
+    assert.throws(() => applyGameState(target, saved), SaveGameError);
+    assert.equal(target.game.wood, 0);
+    assert.deepEqual(target.game.player.root.position.toArray(), [.5, .22, 2.5]);
+    assert.equal(target.game[kind][0].state, 'standing');
+    assert.equal(target.game.buildings.length, 0);
+  }
+});
+
+test('sub-millimetre variation from different JS math engines keeps the same layout', () => {
+  const source = freshIsland();
+  const saved = captureGameState(source);
+  const target = freshIsland();
+  target.game.bushes[21].z += 1e-12;
+  assert.equal(isSaveCompatibleWithIsland(saved, target.game), true);
+  target.game.bushes[21].z += .01;
+  assert.equal(isSaveCompatibleWithIsland(saved, target.game), false);
+});
+
+test('unsigned v1 and older v2 positions retain player progress using the historical count check', () => {
+  const source = freshIsland();
+  source.game.player.root.position.set(2, .22, 3);
+  source.game.wood = 7;
+  source.game.trees[0].hp = 2;
+  const signed = captureGameState(source);
+  for (const schemaVersion of [1, 2]) {
+    const old = structuredClone(signed);
+    old.schemaVersion = schemaVersion;
+    delete old.world.layout;
+    const migrated = validateSave(old);
+    assert.equal(migrated.world.layout, undefined);
+    const target = freshIsland();
+    assert.equal(isSaveCompatibleWithIsland(migrated, target.game), true);
+    applyGameState(target, old);
+    assert.deepEqual(target.game.player.root.position.toArray(), [2, .22, 3]);
+    assert.equal(target.game.wood, 7);
+    assert.equal(target.game.trees[0].hp, 2);
+    assert.deepEqual(captureGameState(target).world.layout, signed.world.layout);
+  }
+});
+
+test('malformed ordered coordinates cannot replace a valid position', () => {
+  const storage = memoryStorage();
+  const original = captureGameState(freshIsland());
+  saveToStorage(storage, original);
+  for (const layout of [
+    {trees: original.world.layout.trees.slice(1), bushes: original.world.layout.bushes},
+    {trees: [[NaN, 0], ...original.world.layout.trees.slice(1)], bushes: original.world.layout.bushes},
+  ]) {
+    assert.throws(() => saveToStorage(storage, {...original, world: {...original.world, layout}}), SaveGameError);
+  }
+  assert.deepEqual(readFromStorage(storage).save, original);
+});
+
+test('same-count reordered primary falls back to signed backup and cannot replace it on autosave', () => {
+  const storage = memoryStorage();
+  const current = freshIsland();
+  const compatible = captureGameState(current);
+  const differentIsland = freshIsland();
+  [differentIsland.game.trees[0], differentIsland.game.trees[1]] =
+    [differentIsland.game.trees[1], differentIsland.game.trees[0]];
+  const reordered = captureGameState(differentIsland);
+  const isCompatible = save => isSaveCompatibleWithIsland(save, current.game);
+  saveToStorage(storage, compatible, {isCompatible});
+  saveToStorage(storage, reordered, {isCompatible});
+  const restored = readFromStorage(storage, {isCompatible});
+  assert.equal(restored.source, 'backup');
+  assert.deepEqual(restored.save, compatible);
+  assert.equal(restored.errors.length, 1);
+  const resumed = structuredClone(restored.save);
+  resumed.resources.wood = 4;
+  saveToStorage(storage, resumed, {isCompatible});
+  assert.deepEqual(validateSave(storage.getItem('trosechnik.save.backup.v1')), compatible);
+  assert.deepEqual(readFromStorage(storage, {isCompatible}).save, resumed);
+});
+
 test('a valid-schema save from an older island layout falls back to the compatible backup', () => {
   const storage = memoryStorage();
   const compatible = captureGameState(freshIsland());
   const differentLayout = structuredClone(compatible);
   differentLayout.world.trees.pop();
   differentLayout.world.coconuts.pop();
+  differentLayout.world.layout.trees.pop();
   saveToStorage(storage, compatible);
   saveToStorage(storage, differentLayout);
   const result = readFromStorage(storage, {

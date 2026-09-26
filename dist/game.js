@@ -9,7 +9,7 @@ import {createProgressGuide} from './progress-guide.js';
 import * as THREE from './vendor/three.module.js';
 import {GROUND,mat,mesh,makeScenery,ocean,makeBuilding,ball} from './world.js?v=23';
 import {RAPIER,IslandGame,canAffordBuilding} from './simulation.js?v=24';
-import {captureGameState,applyGameState,readFromStorage,saveToStorage,exportSave,validateSave} from './save-game.js?v=3';
+import {captureGameState,applyGameState,readFromStorage,saveToStorage,exportSave,validateSave,isSaveCompatibleWithIsland} from './save-game.js?v=4';
 const $=id=>document.getElementById(id),canvas=$('game');
 let renderer;
 try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});}catch(error){$('loading').innerHTML='<strong>3D grafiku se nepodařilo spustit.</strong><p>Zapni hardwarovou akceleraci prohlížeče a obnov stránku.</p>';throw error}
@@ -61,7 +61,7 @@ const dayCycle=createDayCycle(scene,sun,hemisphere,water,game.player.root);
 const outlined=createOcclusionOutline(renderer,scene,camera,game.player.root);
 const saveContext={game,life,exploration,dayCycle,technology};
 let storage=null,saveAllowed=true,saveTimer=null,saveBlockReason='';
-const compatibleWithIsland=save=>save.world.trees.length===game.trees.length&&save.world.bushes.length===game.bushes.length;
+const compatibleWithIsland=save=>isSaveCompatibleWithIsland(save,game);
 try{storage=localStorage;const stored=readFromStorage(storage,{isCompatible:compatibleWithIsland});if(stored.save)applyGameState(saveContext,stored.save);if(stored.futurePrimary){saveAllowed=false;saveBlockReason='future';toast(stored.save?'Pozice z novější verze je chráněná. Zálohu můžeš exportovat, ale neukládá se automaticky.':'Pozice z novější verze je chráněná. Aktuální hru lze jen exportovat.');}else if(stored.save&&stored.source==='backup')toast('Pozice byla obnovena ze zálohy.');else if(!stored.save&&stored.errors.length){saveAllowed=false;saveBlockReason='invalid';toast('Uloženou pozici nelze načíst; původní data zůstala zachována.');}}
 catch(error){saveAllowed=false;saveBlockReason='unavailable';toast('Uložení na tomto zařízení není dostupné. Použij export pozice.');console.warn('Save restore:',error);}
 technologyUI=createTechnologyUI(game,technology,{toast,sound,hud});

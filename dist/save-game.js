@@ -4,7 +4,7 @@ import {RAPIER, COSTS} from './simulation.js';
 import {TECH_RECIPES} from './technology.js';
 import {DRIFTWOOD_RESPAWN_SECONDS} from './driftwood.js';
 
-export const SAVE_SCHEMA_VERSION = 2;
+export const SAVE_SCHEMA_VERSION = 3;
 export const SAVE_WORLD_ID = 'trosechnik-maly-ostrov-1';
 // Keep the original slot names so existing browser positions remain discoverable.
 export const SAVE_KEY = 'trosechnik.save.v1';
@@ -53,6 +53,24 @@ function position(value, name, max = 12.5) {
   return {x: requireNumber(p.x, `${name}.x`, -max, max), z: requireNumber(p.z, `${name}.z`, -max, max)};
 }
 
+// Tree state and coconut counts are indexed by the generation order of the island.
+// Keep ordered millimetre coordinates rather than a hash. Quantization avoids
+// last-bit differences in trigonometry across JS engines while distinguishing
+// any meaningful layout reorder before restoring state.
+function islandLayout(game) {
+  return Object.fromEntries(['trees', 'bushes'].map(kind =>
+    [kind, game[kind].map(item => [Math.round(item.x * 1000), Math.round(item.z * 1000)])]));
+}
+
+export function isSaveCompatibleWithIsland(save, game) {
+  if (save.world.trees.length !== game.trees.length || save.world.bushes.length !== game.bushes.length) return false;
+  // Saves written before the layout field was introduced have only a count check.
+  if (!save.world.layout) return true;
+  const current = islandLayout(game);
+  return ['trees', 'bushes'].every(kind => save.world.layout[kind].every(([x, z], i) =>
+    x === current[kind][i][0] && z === current[kind][i][1]));
+}
+
 // Rebuild a plain, bounded data object. The original input is never mutated or trusted.
 export function validateSave(raw) {
   let data = raw;
@@ -61,7 +79,7 @@ export function validateSave(raw) {
     try { data = JSON.parse(data); } catch { throw new SaveGameError('Uložená hra není platný JSON'); }
   }
   data = requireObject(data, 'save');
-  if (data.schemaVersion !== 1 && data.schemaVersion !== SAVE_SCHEMA_VERSION) {
+  if (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== SAVE_SCHEMA_VERSION) {
     throw new SaveGameError('Nepodporovaná verze uložené hry',
       typeof data.schemaVersion === 'number' && Number.isFinite(data.schemaVersion) && data.schemaVersion > SAVE_SCHEMA_VERSION ? 'FUTURE_SCHEMA' : 'INVALID_SAVE');
   }
@@ -117,6 +135,21 @@ export function validateSave(raw) {
       if ((state === 'standing') !== (hp > 0)) throw new SaveGameError(`world.${kind}[${i}]: stav neodpovídá zdraví`);
       return {hp, state};
     });
+  }
+  // Optional in v1 and v2 positions. Do not manufacture a signature
+  // during migration: the old save cannot prove its original object ordering.
+  if (world.layout !== undefined) {
+    const layout = requireObject(world.layout, 'world.layout');
+    clean.world.layout = {};
+    for (const kind of ['trees', 'bushes']) {
+      const points = requireArray(layout[kind], `world.layout.${kind}`, 100);
+      if (points.length !== clean.world[kind].length) throw new SaveGameError(`world.layout.${kind}: nesprávný počet`);
+      clean.world.layout[kind] = points.map((point, i) => {
+        const coordinates = requireArray(point, `world.layout.${kind}[${i}]`, 2);
+        if (coordinates.length !== 2) throw new SaveGameError(`world.layout.${kind}[${i}]: nesprávné souřadnice`);
+        return coordinates.map((value, axis) => requireNumber(value, `world.layout.${kind}[${i}][${axis}]`, -12500, 12500, true));
+      });
+    }
   }
   clean.world.coconuts = requireArray(world.coconuts, 'world.coconuts', 100)
     .map((count, i) => requireNumber(count, `world.coconuts[${i}]`, 0, 3, true));
@@ -200,7 +233,7 @@ export function captureGameState({game, life, exploration, dayCycle, technology}
     // has not spawned its five logs/six leaves yet; count those once as well.
     resources: {wood: game.wood + game.logs.length + 5 * falling, leaves: game.leaves + game.leafDrops.length + 6 * falling},
     inventory,
-    world: {buildings, driftwood: game.driftwood.snapshot(),
+    world: {buildings, driftwood: game.driftwood.snapshot(), layout: islandLayout(game),
       trees: game.trees.map(t => ({hp: t.state === 'standing' ? t.hp : 0, state: t.state === 'standing' ? 'standing' : 'gone'})),
       bushes: game.bushes.map(b => ({hp: b.state === 'standing' ? b.hp : 0, state: b.state === 'standing' ? 'standing' : 'gone'})),
       coconuts,
@@ -233,7 +266,7 @@ function restoreBuilding(game, data) {
 export function applyGameState({game, life, exploration, dayCycle, technology}, raw) {
   const save = validateSave(raw);
   if (!game || !life || !exploration || game.buildings.length || exploration.holes.length ||
-      game.trees.length !== save.world.trees.length || game.bushes.length !== save.world.bushes.length ||
+      !isSaveCompatibleWithIsland(save, game) ||
       (save.technology.job && !technology) ||
       (save.exploration.tool !== exploration.tool && typeof exploration.select !== 'function')) {
     throw new SaveGameError('Uložená pozice neodpovídá čistě spuštěnému ostrovu');
