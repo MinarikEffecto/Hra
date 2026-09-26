@@ -83,3 +83,30 @@ rozměr. Snímky používají `HRA_QA_OUTPUT` nebo dočasný adresář. Externí
 Google Fonts jsou pro tento scénář úmyslně blokované; vzhled písma a emoji
 na fyzickém zařízení není tímto ověřen. Chyby herního JS a místních souborů
 způsobí neúspěch testu.
+
+## Zásobovací skrýš K–03
+
+```sh
+npm run buried-cache --prefix tests/browser
+```
+
+Skutečný 3D ostrov na desktopu 1280×800 a dotykovém rozměru 390×844.
+Začíná připravenou anonymní pozicí v5 s lopatou, řezákem a dvěma samostatnými
+metrovými lany. Klávesnicí nebo dotykem vykope všechny čtyři vrstvy, ověří
+uložení odkrytého poklopu a odmítnutí dvou nespojených lan.
+
+Pro vyzvednutí zásob vloží do kopie pozice jedno spojené třímetrové lano.
+Skutečným tlačítkem vyzvedne zásoby, ověří odečet dvou metrů, zachování
+kvality zbytku a trvalý řezák. Mobilní vyzvednutí probíhá po otočení na
+568×320. Reload musí zachovat vyzvednutý stav a nepřidat další odměnu.
+Není to nový průchod celou výrobou od holých rukou; ten má vlastní scénář.
+
+Kontroluje také Tab a Shift+Tab uvnitř dialogu, návrat fokusu po vyzvednutí,
+vysvětlení chybějícího lana a nepřepisování nezměněného popisu pro čtečku.
+Před další akcí počká na skutečné dokončení pohybu nástroje.
+Po odkrytí vloží vzdálenou kopii pozice a ověří šipku, vzdálenost,
+slovní směr a nepřístupné vyzvednutí z dálky.
+
+Výstup a blokování externích fontů fungují stejně jako výše. Neodchycené
+chyby hry a chybějící místní soubory test odmítá. Rozsah funkce a migrace
+jsou popsány v [záznamu skrýše](../../docs/BUNKR-SKRYS-2026-09-26.md).

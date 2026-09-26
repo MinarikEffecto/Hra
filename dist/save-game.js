@@ -5,8 +5,9 @@ import {TECH_RECIPES} from './technology.js';
 import {DRIFTWOOD_RESPAWN_SECONDS} from './driftwood.js';
 import {PALM_GROWTH_SECONDS, isPlantingSiteClear} from './palm-growth.js';
 import {starterState, validateStarterState, availableTools} from './starter-tools.js';
+import {validateBunker} from './buried-cache.js';
 
-export const SAVE_SCHEMA_VERSION = 5;
+export const SAVE_SCHEMA_VERSION = 6;
 export const SAVE_WORLD_ID = 'trosechnik-maly-ostrov-1';
 // Keep the original slot names so existing browser positions remain discoverable.
 export const SAVE_KEY = 'trosechnik.save.v1';
@@ -82,7 +83,7 @@ export function validateSave(raw) {
     try { data = JSON.parse(data); } catch { throw new SaveGameError('Uložená hra není platný JSON'); }
   }
   data = requireObject(data, 'save');
-  if (![1, 2, 3, 4, SAVE_SCHEMA_VERSION].includes(data.schemaVersion)) {
+  if (![1, 2, 3, 4, 5, SAVE_SCHEMA_VERSION].includes(data.schemaVersion)) {
     throw new SaveGameError('Nepodporovaná verze uložené hry',
       typeof data.schemaVersion === 'number' && Number.isFinite(data.schemaVersion) && data.schemaVersion > SAVE_SCHEMA_VERSION ? 'FUTURE_SCHEMA' : 'INVALID_SAVE');
   }
@@ -109,6 +110,7 @@ export function validateSave(raw) {
     exploration: {tool: requireChoice(requireObject(data.exploration, 'exploration').tool, TOOLS, 'exploration.tool')},
     technology: {job: null},
     starter: starterState(true),
+    bunker: {claimed: false},
   };
   if (data.schemaVersion >= 5) {
     try { clean.starter = validateStarterState(data.starter); }
@@ -202,6 +204,10 @@ export function validateSave(raw) {
         sourceX: requireNumber(flood.sourceX, `world.holes[${i}].flood.sourceX`, -12.5, 12.5),
         sourceZ: requireNumber(flood.sourceZ, `world.holes[${i}].flood.sourceZ`, -12.5, 12.5)} : null};
   });
+  if (data.schemaVersion >= 6) {
+    try { clean.bunker = validateBunker(data.bunker, clean.world.holes, clean.world.buildings); }
+    catch (error) { throw new SaveGameError(error.message); }
+  }
   if (clean.world.layout && clean.world.plantings.some(p => {
     const [x, z] = clean.world.layout.trees[p.treeIndex];
     return !isPlantingSiteClear({x: x / 1000, z: z / 1000}, clean.world.buildings, clean.world.holes);
@@ -273,6 +279,7 @@ export function captureGameState({game, life, exploration, dayCycle, technology}
     exploration: {tool: exploration.tool},
     technology: {job: technology?.job ? {kind: technology.job.kind, buildingIndex: buildingIndex(technology.job.building), remaining: technology.job.remaining} : null},
     starter: game.starterTools?.snapshot() ?? starterState(true),
+    bunker: game.buriedCache?.snapshot() ?? {claimed: false},
   };
   return validateSave(result);
 }
@@ -297,6 +304,7 @@ export function applyGameState({game, life, exploration, dayCycle, technology}, 
       !isSaveCompatibleWithIsland(save, game) ||
       (save.world.plantings.length && !game.palmGrowth) ||
       (save.technology.job && !technology) ||
+      (save.bunker.claimed && !game.buriedCache) ||
       (save.exploration.tool !== exploration.tool && typeof exploration.select !== 'function')) {
     throw new SaveGameError('Uložená pozice neodpovídá čistě spuštěnému ostrovu');
   }
@@ -338,6 +346,7 @@ export function applyGameState({game, life, exploration, dayCycle, technology}, 
     if (h.pyramid && exploration.pyramid) exploration.pyramid.userData.targetY = GROUND - 1.87 + Math.min(h.level, 7) / 7 * 1.69;
   }
   exploration.restoreFloods?.(save.world.holes);
+  game.buriedCache?.restore(save.bunker);
   state.satiety = save.survival.satiety;
   life.restoreWildlife?.(save.survival.wildlife);
   state.torch = save.survival.torch;

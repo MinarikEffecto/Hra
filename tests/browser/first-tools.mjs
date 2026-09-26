@@ -7,6 +7,7 @@ import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {resolve, extname} from 'node:path';
 import {firstToolsSteps, craftTool} from './first-tools-steps.mjs';
+import {SAVE_SCHEMA_VERSION} from '../../dist/save-game.js';
 
 const root = resolve(process.env.HRA_QA_DIST ?? fileURLToPath(new URL('../../dist/', import.meta.url)));
 const output = process.env.HRA_QA_OUTPUT ?? mkdtempSync(resolve(tmpdir(), 'hra-first-tools-'));
@@ -94,7 +95,7 @@ try {
     assert.ok(s.world.holes.length > 0 && s.inventory.clay >= 1, 'crafted shovel must dig');
     await page.reload(); await page.locator('#loading').waitFor({state: 'hidden'});
     s = await snapshot();
-    assert.equal(s.schemaVersion, 5); assert.equal(s.starter.stage, 3); assert.equal(s.starter.shovel, true);
+    assert.equal(s.schemaVersion, SAVE_SCHEMA_VERSION); assert.equal(s.starter.stage, 3); assert.equal(s.starter.shovel, true);
     assert.equal(s.starter.shotgun, false); assert.equal(s.exploration.tool, 'shovel');
     assert.equal(errors.length, 0, errors.join('\n'));
     await screenshot('saved-tools');
