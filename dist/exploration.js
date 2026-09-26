@@ -1,3 +1,4 @@
+import {holeRadius} from './palm-growth.js';
 import * as THREE from './vendor/three.module.js';
 import {GROUND,inside,islandRadius,ball,rod,mesh,mat,box} from './world.js?v=23';
 import {createFiberCrafting} from './fiber-crafting.js?v=23';
@@ -49,7 +50,9 @@ export function createExploration(scene,game,{sound,noise}){
   const blocked=!inside(x,z,.75)||game.trees.some(t=>t.state!=='gone'&&Math.hypot(t.x-x,t.z-z)<.75)||game.buildings.some(b=>Math.hypot(b.x-x,b.z-z)<1.15);
   const pyramid=Math.hypot(x-PYRAMID.x,z-PYRAMID.z)<1.45;
   const hole=pyramid?holes.find(h=>h.pyramid):nearestHole(x,z);
-  return {x:pyramid?PYRAMID.x:hole?.x??x,z:pyramid?PYRAMID.z:hole?.z??z,a,hole,pyramid,valid:!blocked&&game.grounded&&(!hole||hole.level<50)&&(hole||holes.length<100)};
+  const tx=pyramid?PYRAMID.x:hole?.x??x,tz=pyramid?PYRAMID.z:hole?.z??z;
+  const seedling=game.trees.some(t=>t.state==='growing'&&Math.hypot(t.x-tx,t.z-tz)<holeRadius((hole?.level??0)+1)+.6);
+  return {x:tx,z:tz,a,hole,pyramid,valid:!blocked&&!seedling&&game.grounded&&(!hole||hole.level<50)&&(hole||holes.length<100)};
  }
  function dig(){
   if(game.cooldown>0||digTime>0||!game.grounded)return false;

@@ -3,8 +3,9 @@ import {GROUND, makeBuilding} from './world.js?v=23';
 import {RAPIER, COSTS} from './simulation.js';
 import {TECH_RECIPES} from './technology.js';
 import {DRIFTWOOD_RESPAWN_SECONDS} from './driftwood.js';
+import {PALM_GROWTH_SECONDS, isPlantingSiteClear} from './palm-growth.js';
 
-export const SAVE_SCHEMA_VERSION = 3;
+export const SAVE_SCHEMA_VERSION = 4;
 export const SAVE_WORLD_ID = 'trosechnik-maly-ostrov-1';
 // Keep the original slot names so existing browser positions remain discoverable.
 export const SAVE_KEY = 'trosechnik.save.v1';
@@ -64,6 +65,7 @@ function islandLayout(game) {
 
 export function isSaveCompatibleWithIsland(save, game) {
   if (save.world.trees.length !== game.trees.length || save.world.bushes.length !== game.bushes.length) return false;
+  if (save.world.plantings?.some(p => !isPlantingSiteClear(game.trees[p.treeIndex], save.world.buildings, save.world.holes))) return false;
   // Saves written before the layout field was introduced have only a count check.
   if (!save.world.layout) return true;
   const current = islandLayout(game);
@@ -79,7 +81,7 @@ export function validateSave(raw) {
     try { data = JSON.parse(data); } catch { throw new SaveGameError('Uložená hra není platný JSON'); }
   }
   data = requireObject(data, 'save');
-  if (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== SAVE_SCHEMA_VERSION) {
+  if (![1, 2, 3, SAVE_SCHEMA_VERSION].includes(data.schemaVersion)) {
     throw new SaveGameError('Nepodporovaná verze uložené hry',
       typeof data.schemaVersion === 'number' && Number.isFinite(data.schemaVersion) && data.schemaVersion > SAVE_SCHEMA_VERSION ? 'FUTURE_SCHEMA' : 'INVALID_SAVE');
   }
@@ -100,7 +102,7 @@ export function validateSave(raw) {
     player: {...pos, y: requireNumber(player.y, 'player.y', -30, 20), heading: requireNumber(player.heading, 'player.heading', -1e6, 1e6)},
     resources: {wood: requireNumber(resources.wood, 'resources.wood', 0, 1e6, true), leaves: requireNumber(resources.leaves, 'resources.leaves', 0, 1e6, true)},
     inventory: {},
-    world: {buildings: [], trees: [], bushes: [], holes: [], coconuts: []},
+    world: {buildings: [], trees: [], bushes: [], holes: [], coconuts: [], plantings: []},
     clock: {hour: requireNumber(requireObject(data.clock, 'clock').hour, 'clock.hour', 0, 24), speed: requireChoice(data.clock.speed, [0, .25, 1, 4], 'clock.speed')},
     survival: {satiety: requireNumber(survival.satiety, 'survival.satiety', 0, 100), torch: requireBoolean(survival.torch, 'survival.torch'), lit: requireBoolean(survival.lit, 'survival.lit'), traps: [], cooking: null, wildlife: null},
     exploration: {tool: requireChoice(requireObject(data.exploration, 'exploration').tool, TOOLS, 'exploration.tool')},
@@ -154,6 +156,19 @@ export function validateSave(raw) {
   clean.world.coconuts = requireArray(world.coconuts, 'world.coconuts', 100)
     .map((count, i) => requireNumber(count, `world.coconuts[${i}]`, 0, 3, true));
   if (clean.world.coconuts.length !== clean.world.trees.length) throw new SaveGameError('Počet kokosů neodpovídá palmám');
+  // Older versions contain no seedlings. Version 4 keeps their palm slot and
+  // active play time, so older clients protect this save as a future schema.
+  if (data.schemaVersion >= 4) {
+    clean.world.plantings = requireArray(world.plantings, 'world.plantings', clean.world.trees.length).map((entry, i) => {
+      const p = requireObject(entry, `world.plantings[${i}]`);
+      const treeIndex = requireNumber(p.treeIndex, `world.plantings[${i}].treeIndex`, 0, clean.world.trees.length - 1, true);
+      if (clean.world.trees[treeIndex].state !== 'gone' || clean.world.coconuts[treeIndex] !== 0)
+        throw new SaveGameError('Sazenice nesmí současně být dospělou palmou nebo nést kokosy');
+      return {treeIndex, remaining: requireNumber(p.remaining, `world.plantings[${i}].remaining`, 0, PALM_GROWTH_SECONDS)};
+    });
+    if (new Set(clean.world.plantings.map(p => p.treeIndex)).size !== clean.world.plantings.length)
+      throw new SaveGameError('Na jednom místě je více sazenic');
+  }
   // Older mid-fall saves may mark a palm gone while leaving coconuts on its
   // invisible crown. Recover those coconuts when reading either save schema.
   for (const [i, tree] of clean.world.trees.entries()) {
@@ -179,6 +194,10 @@ export function validateSave(raw) {
         sourceX: requireNumber(flood.sourceX, `world.holes[${i}].flood.sourceX`, -12.5, 12.5),
         sourceZ: requireNumber(flood.sourceZ, `world.holes[${i}].flood.sourceZ`, -12.5, 12.5)} : null};
   });
+  if (clean.world.layout && clean.world.plantings.some(p => {
+    const [x, z] = clean.world.layout.trees[p.treeIndex];
+    return !isPlantingSiteClear({x: x / 1000, z: z / 1000}, clean.world.buildings, clean.world.holes);
+  })) throw new SaveGameError('Sazenice zasahuje do stavby nebo výkopu');
   for (const [i, item] of requireArray(survival.traps, 'survival.traps', 100).entries()) {
     const t = requireObject(item, `survival.traps[${i}]`);
     const buildingIndex = requireNumber(t.buildingIndex, `survival.traps[${i}].buildingIndex`, 0, clean.world.buildings.length - 1, true);
@@ -233,7 +252,7 @@ export function captureGameState({game, life, exploration, dayCycle, technology}
     // has not spawned its five logs/six leaves yet; count those once as well.
     resources: {wood: game.wood + game.logs.length + 5 * falling, leaves: game.leaves + game.leafDrops.length + 6 * falling},
     inventory,
-    world: {buildings, driftwood: game.driftwood.snapshot(), layout: islandLayout(game),
+    world: {buildings, driftwood: game.driftwood.snapshot(), layout: islandLayout(game), plantings: game.palmGrowth?.snapshot() ?? [],
       trees: game.trees.map(t => ({hp: t.state === 'standing' ? t.hp : 0, state: t.state === 'standing' ? 'standing' : 'gone'})),
       bushes: game.bushes.map(b => ({hp: b.state === 'standing' ? b.hp : 0, state: b.state === 'standing' ? 'standing' : 'gone'})),
       coconuts,
@@ -267,6 +286,7 @@ export function applyGameState({game, life, exploration, dayCycle, technology}, 
   const save = validateSave(raw);
   if (!game || !life || !exploration || game.buildings.length || exploration.holes.length ||
       !isSaveCompatibleWithIsland(save, game) ||
+      (save.world.plantings.length && !game.palmGrowth) ||
       (save.technology.job && !technology) ||
       (save.exploration.tool !== exploration.tool && typeof exploration.select !== 'function')) {
     throw new SaveGameError('Uložená pozice neodpovídá čistě spuštěnému ostrovu');
@@ -291,6 +311,7 @@ export function applyGameState({game, life, exploration, dayCycle, technology}, 
     b.root.visible = item.state === 'standing';
     if (item.state === 'standing') b.root.scale.setScalar(.8 + item.hp * .1);
   }
+  game.palmGrowth?.restore(save.world.plantings);
   life.restoreCoconuts?.(save.world.coconuts);
   for (const b of save.world.buildings) restoreBuilding(game, b);
   if (technology) technology.job = save.technology.job ? {kind: save.technology.job.kind,

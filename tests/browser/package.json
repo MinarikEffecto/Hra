@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node workshop.mjs",
-    "progression": "node progression.mjs"
+    "progression": "node progression.mjs",
+    "planting": "node planting.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.63.0",

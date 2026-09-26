@@ -48,11 +48,16 @@ footer{left:auto;right:16px;bottom:20px}#buildBtn{width:48px;height:48px;padding
 #toast{z-index:45;opacity:0}
 #saveControls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:10px}#saveControls button{min-width:0;padding:8px 3px;font-size:11px;box-shadow:none;background:#e9f4e0;border-color:#a8c89e}
 #shoreStatus{margin:8px 0 0;padding:8px;border-radius:9px;background:#e4f2df;color:#22564d;font-size:11px;font-weight:700;line-height:1.35}
+#palmGrowth{margin-top:10px;padding:10px;border:1px solid #afcb9b;border-radius:12px;background:#edf4df;color:#22564d}
+#palmGrowth strong{font-size:13px}#palmGrowth p{font-size:12px;line-height:1.4;margin:6px 0 9px}
+#palmGrowth button{width:100%;min-height:44px;padding:8px;font-size:12px;box-shadow:none;touch-action:manipulation}
+#palmGrowth button:disabled{opacity:.5;cursor:default}
 #bagPanel{max-height:calc(100dvh - 112px);overflow-y:auto;overscroll-behavior:contain}
 @media(max-height:520px){#bagPanel{top:54px;max-height:calc(100dvh - 62px)}}
 
 /* Station production remains reachable by touch without replacing the cooking action. */
 #techOpen{white-space:nowrap;touch-action:manipulation}
+#survival #techOpen{width:auto;min-width:44px;padding:0 10px}#techOpen .techButtonLabel{font-size:13px;margin-left:4px}
 @media(max-width:700px){#techOpen .techButtonLabel{display:none}}
 .techPanel{position:fixed;inset:0;z-index:210;display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:#102f32e8}
 .techCard{width:min(570px,100%);max-height:100%;overflow:auto;overscroll-behavior:contain;background:#fff6df;border-radius:22px;padding:clamp(16px,4vw,28px);box-shadow:0 22px 65px #061c1e88}

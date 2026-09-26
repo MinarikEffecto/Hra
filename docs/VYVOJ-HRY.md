@@ -186,6 +186,10 @@ zaznamenány v [herním sprintu](SPRINT-2026-09-25.md) a
 dílny a úplný mobilní průchod na neměnném kódu. `main` a živá verze Sites
 zůstávají na výchozím stavu; zbývá review, skutečný telefon a samostatné vydání.
 
+Navazující větev `feature/2026-09-26-coconut-regrowth` přidává
+[sázení kokosů a růst palem](SAZENI-PALEM-2026-09-26.md), uložené ve formátu v4
+s převodem v1–v3. Je to samostatný kandidát navazující na PR #1, zatím bez vydání.
+
 - [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) – větve, kontrola a začleňování změn.
 - [ChatGPT Sites](https://learn.chatgpt.com/docs/sites) – verze, publikování, hosting a úložiště D1/R2.
 
