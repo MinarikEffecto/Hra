@@ -1,5 +1,9 @@
 # Kontrola dílny ve skutečném prohlížeči
 
+Navazující [kontrola ovladačů nástrojů](../../docs/OVLADANI-NASTROJU-2026-09-26.md)
+se spouští příkazem `node tests/browser/tool-feedback.mjs`. Ověřuje ikony,
+popisky pro čtečku, dosažitelné cíle a blokované kopání na desktopu i dotyku.
+
 Samostatná volitelná sada pro Linux / Node 22 a novější. Načte skutečný
 `dist/style.css` a `dist/fiber-crafting.js` v Chromiu; 3D ostrov nahrazuje
 malý inventář. Tím oddělí chyby ovládání a rozložení od výkonu 3D vykreslování.
