@@ -56,7 +56,41 @@ poškozeného importu. Původní testy dílny, technologie a ukládání také p
 
 Opakovatelná kontrola skutečné hry: `npm run planting --prefix tests/browser`.
 Její přesný rozsah a omezení jsou v [návodu testů](../tests/browser/README.md).
-Výsledky prohlížeče budou doplněny po dokončení scénářů.
+
+Prohlížečové scénáře prošly 26. 9. 2026 na herním kódu commitu
+`b4f1d90075cbb3d91a8cf2d89a71f17cc9757843` a opraveném testovacím skriptu
+`41a08968c85f9c5e86a19a44a21c3f87e0906b14`:
+
+| Rozměr | Vstup | Výsledek po sklizni a reloadu |
+| --- | --- | --- |
+| 1280 × 800 | Myš + klávesnice | 5 dřev, 6 listů, 4 kokosy |
+| 390 × 844 | Dotyk, akce u pařezu | 5 dřev, 6 listů, 4 kokosy |
+| 568 × 320 | Dotyk, sázení z batohu | 5 dřev, 6 listů, 4 kokosy |
+
+Čtyři výsledné kokosy jsou dva původní minus jeden zasazený plus tři z nové
+palmy. Před druhou sklizní se nevytvořilo žádné dřevo ani listí. Zasazení,
+uložení a reload běžely se skutečným tříminutovým nastavením; test pak
+výslovně zkrátil čekání pomocí validní pozice s jednou sekundou do dorostení.
+Všechny tři průchody skončily bez neodchycené chyby JavaScriptu a bez chyby
+načtení místního souboru. Snímky batohu, sazenice a dospělé palmy byly
+zkontrolovány; ovládání je dostupné i na krátkém displeji.
+
+První běh testu chytil sdílené zásoby mezi profily softwarového Chromia.
+Opravený skript čistí testovací úložiště, připravuje nulové suroviny a
+před dalším rozměrem zastaví předchozí 3D stránku. V opraveném běhu prošly
+všechny rozměry. Fyzický telefon, skutečná přesnost dotyku a výkon mobilního
+GPU zatím ověřené nejsou; externí písmo je v testu blokované.
+
+## Stav předání
+
+Uživatel 26. 9. 2026 výslovně potvrdil odeslání na GitHub. Větev je nyní
+v [PR #2](https://github.com/MinarikEffecto/Hra/pull/2), který navazuje na PR #1.
+GitHub commity `f630432` (funkce) a `c413e65` (izolace testů) mají totožné
+stromy jako místní `b4f1d90` a `41a0896`. API vytvořilo odlišná SHA commitů,
+ikoli odlišný herní kód. Ověřený strom celé implementace a testů:
+`2d085753beffe05b7f5f5733ab25c34e814be9e7`.
+
+`main` a živý Sites zůstávají beze změny. Tato větev není vydání hry.
 
 ## Další krok
 
