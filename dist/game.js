@@ -8,13 +8,15 @@ import {createTechnologyUI} from './technology-ui.js';
 import {StarterTools} from './starter-tools.js';
 import {toolFeedback} from './tool-feedback.js';
 import {createStarterToolsUI} from './starter-tools-ui.js';
+import {BuriedCache} from './buried-cache.js?v=3';
+import {createBuriedCacheUI} from './buried-cache-ui.js?v=3';
 import {PalmGrowth} from './palm-growth.js';
 import {createPalmGrowthUI} from './palm-growth-ui.js';
-import {createProgressGuide} from './progress-guide.js?v=3';
+import {createProgressGuide} from './progress-guide.js?v=4';
 import * as THREE from './vendor/three.module.js';
 import {GROUND,mat,mesh,makeScenery,ocean,makeBuilding,ball} from './world.js?v=23';
 import {RAPIER,IslandGame,canAffordBuilding} from './simulation.js?v=27';
-import {captureGameState,applyGameState,readFromStorage,saveToStorage,exportSave,validateSave,isSaveCompatibleWithIsland} from './save-game.js?v=6';
+import {captureGameState,applyGameState,readFromStorage,saveToStorage,exportSave,validateSave,isSaveCompatibleWithIsland} from './save-game.js?v=7';
 const $=id=>document.getElementById(id),canvas=$('game');
 let renderer;
 try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});}catch(error){$('loading').innerHTML='<strong>3D grafiku se nepodařilo spustit.</strong><p>Zapni hardwarovou akceleraci prohlížeče a obnov stránku.</p>';throw error}
@@ -65,12 +67,14 @@ const technology=new Technology(game,(event,kind)=>{hud();technologyUI?.refresh(
 const dayCycle=createDayCycle(scene,sun,hemisphere,water,game.player.root);
 const outlined=createOcclusionOutline(renderer,scene,camera,game.player.root);
 game.palmGrowth=new PalmGrowth(game,exploration);
+game.buriedCache=new BuriedCache(game,exploration);
 const saveContext={game,life,exploration,dayCycle,technology};
 let storage=null,saveAllowed=true,saveTimer=null,saveBlockReason='';
 const compatibleWithIsland=save=>isSaveCompatibleWithIsland(save,game);
 try{storage=localStorage;const stored=readFromStorage(storage,{isCompatible:compatibleWithIsland});if(stored.save)applyGameState(saveContext,stored.save);if(stored.futurePrimary){saveAllowed=false;saveBlockReason='future';toast(stored.save?'Pozice z novější verze je chráněná. Zálohu můžeš exportovat, ale neukládá se automaticky.':'Pozice z novější verze je chráněná. Aktuální hru lze jen exportovat.');}else if(stored.save&&stored.source==='backup')toast('Pozice byla obnovena ze zálohy.');else if(!stored.save&&stored.errors.length){saveAllowed=false;saveBlockReason='invalid';toast('Uloženou pozici nelze načíst; původní data zůstala zachována.');}}
 catch(error){saveAllowed=false;saveBlockReason='unavailable';toast('Uložení na tomto zařízení není dostupné. Použij export pozice.');console.warn('Save restore:',error);}
 const starterToolsUI=createStarterToolsUI(game,exploration,{toast,sound,hud});
+const buriedCacheUI=createBuriedCacheUI(game,{toast,sound,hud});
 const toolActionButton=document.querySelector('.chop'),toolTargetDescription=$('target');
 for(const element of [canvas,toolActionButton,$('tool')])element.setAttribute('aria-describedby','target');
 const palmGrowthUI=createPalmGrowthUI(game,game.palmGrowth,{toast,sound});
@@ -96,7 +100,7 @@ function refreshToolFeedback(paused) {
   toolActionButton.title=feedback.text;$('tool').title=feedback.text;
  }
 }
-hud();$('loading').hidden=true;let previous=performance.now();function frame(now){const dt=document.hidden?0:Math.min((now-previous)/1000,.05);previous=now;const paused=menu||game.craftingOpen,input=paused?{}:{x:joystickInput.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),z:joystickInput.z+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)};if(keys.f&&!placing&&!paused)game.chop();if(life.state.satiety<20){input.x=(input.x||0)*.7;input.z=(input.z||0)*.7;}game.update(game.craftingOpen?0:dt,input);life.update(game.craftingOpen?0:dt);technology.tick(dt);updateFireAudio(dt,life.state);exploration.update(game.craftingOpen?0:dt);technologyUI.update(dt);progressGuide.update(dt);palmGrowthUI.update(dt);starterToolsUI.update(dt);music?.update();dayCycle.update(game.craftingOpen?0:dt);const depthOffset=(game.player.root.position.y-GROUND)*.42;camera.position.y=22+depthOffset;camera.lookAt(0,.8+depthOffset,0);water.uTime.value=game.elapsed;playerContact.position.x=game.player.root.position.x;playerContact.position.z=game.player.root.position.z;for(let i=chips.length-1;i>=0;i--){const p=chips[i];p.life-=dt;p.v.y-=9.8*dt;p.m.position.addScaledVector(p.v,dt);p.m.rotation.x+=dt*8;p.m.rotation.z+=dt*4;if(p.life<=0){scene.remove(p.m);chips.splice(i,1)}}if(ghost){ghost.position.copy(buildPoint);ghost.rotation.y=rotation;const valid=canAffordBuilding(game,placing)&&game.canBuild(placing,buildPoint.x,buildPoint.z);ghost.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.color.set(valid?0x70dbaa:0xf58478))}})}refreshToolFeedback(paused);toastTimer-=dt;if(toastTimer<0)$('toast').style.opacity='0';outlined.render();requestAnimationFrame(frame)}requestAnimationFrame(frame);
+hud();$('loading').hidden=true;let previous=performance.now();function frame(now){const dt=document.hidden?0:Math.min((now-previous)/1000,.05);previous=now;const paused=menu||game.craftingOpen,input=paused?{}:{x:joystickInput.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),z:joystickInput.z+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)};if(keys.f&&!placing&&!paused)game.chop();if(life.state.satiety<20){input.x=(input.x||0)*.7;input.z=(input.z||0)*.7;}game.update(game.craftingOpen?0:dt,input);life.update(game.craftingOpen?0:dt);technology.tick(dt);updateFireAudio(dt,life.state);exploration.update(game.craftingOpen?0:dt);technologyUI.update(dt);progressGuide.update(dt);palmGrowthUI.update(dt);starterToolsUI.update(dt);buriedCacheUI.update(dt);music?.update();dayCycle.update(game.craftingOpen?0:dt);const depthOffset=(game.player.root.position.y-GROUND)*.42;camera.position.y=22+depthOffset;camera.lookAt(0,.8+depthOffset,0);water.uTime.value=game.elapsed;playerContact.position.x=game.player.root.position.x;playerContact.position.z=game.player.root.position.z;for(let i=chips.length-1;i>=0;i--){const p=chips[i];p.life-=dt;p.v.y-=9.8*dt;p.m.position.addScaledVector(p.v,dt);p.m.rotation.x+=dt*8;p.m.rotation.z+=dt*4;if(p.life<=0){scene.remove(p.m);chips.splice(i,1)}}if(ghost){ghost.position.copy(buildPoint);ghost.rotation.y=rotation;const valid=canAffordBuilding(game,placing)&&game.canBuild(placing,buildPoint.x,buildPoint.z);ghost.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.color.set(valid?0x70dbaa:0xf58478))}})}refreshToolFeedback(paused);toastTimer-=dt;if(toastTimer<0)$('toast').style.opacity='0';outlined.render();requestAnimationFrame(frame)}requestAnimationFrame(frame);
 
 // Pointer capture keeps movement continuous while the second thumb holds the axe.
 const joystick=$('joystick'),stick=$('stick');let joyPointer=null;

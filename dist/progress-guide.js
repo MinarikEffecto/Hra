@@ -86,8 +86,14 @@ export function firstSmeltingGoal(game, technology, exploration, {touch = false}
   const has = type => game.buildings.some(b => b.type === type);
   const furnace = has('furnace');
   const job = technology.job;
-  if (inv.copperCutter) return {key: 'done', action: 'Měděný řezák je hotový.',
-    stock: 'První tavicí postup dokončen', help: 'Řezák zlepšuje řezání listů a lián u ponku.'};
+  if (inv.copperCutter) {
+    const cache = game.buriedCache;
+    if (cache && !cache.claimed) return {key: 'bunker', action: cache.revealed ? 'Prozkoumej odkrytý poklop v batohu.' : 'Hledej rezavý plech mezi středem ostrova a severními palmami.',
+      stock: cache.revealed ? 'Řezák hotový · připrav jeden kus lana alespoň 2 m' : 'Řezák hotový · další krok je průzkum',
+      help: 'U plechu otevři batoh a prohlédni nález. Lopata může odkrýt skrýš; lano spojíš v dílně u ponku.'};
+    return {key: 'done', action: 'Měděný řezák je hotový.',
+      stock: 'První tavicí postup dokončen', help: 'Řezák zlepšuje řezání listů a lián u ponku.'};
+  }
 
   if (inv.ingot >= 1) {
     if (!has('workbench')) {
