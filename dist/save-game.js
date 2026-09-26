@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import {GROUND, makeBuilding} from './world.js?v=23';
 import {RAPIER, COSTS} from './simulation.js';
 import {TECH_RECIPES} from './technology.js';
+import {DRIFTWOOD_RESPAWN_SECONDS} from './driftwood.js';
 
 export const SAVE_SCHEMA_VERSION = 2;
 export const SAVE_WORLD_ID = 'trosechnik-maly-ostrov-1';
@@ -127,6 +128,16 @@ export function validateSave(raw) {
     clean.inventory.coconut = requireNumber(clean.inventory.coconut + clean.world.coconuts[i], 'inventory.coconut', 0, 1e6, true);
     clean.world.coconuts[i] = 0;
   }
+  // Optional in older v1/v2 saves. Once written, validate both fields so a
+  // corrupt cooldown cannot be used to replace the last good position.
+  if (world.driftwood === undefined) clean.world.driftwood = {available: true, remaining: 0};
+  else {
+    const driftwood = requireObject(world.driftwood, 'world.driftwood');
+    const available = requireBoolean(driftwood.available, 'world.driftwood.available');
+    const remaining = requireNumber(driftwood.remaining, 'world.driftwood.remaining', 0, DRIFTWOOD_RESPAWN_SECONDS);
+    if (available ? remaining !== 0 : remaining <= 0) throw new SaveGameError('Nesprávný stav naplaveniny');
+    clean.world.driftwood = {available, remaining};
+  }
   clean.world.holes = requireArray(world.holes, 'world.holes', 100).map((entry, i) => {
     const h = requireObject(entry, `world.holes[${i}]`);
     const flood = h.flood === null ? null : requireObject(h.flood, `world.holes[${i}].flood`);
@@ -189,7 +200,7 @@ export function captureGameState({game, life, exploration, dayCycle, technology}
     // has not spawned its five logs/six leaves yet; count those once as well.
     resources: {wood: game.wood + game.logs.length + 5 * falling, leaves: game.leaves + game.leafDrops.length + 6 * falling},
     inventory,
-    world: {buildings,
+    world: {buildings, driftwood: game.driftwood.snapshot(),
       trees: game.trees.map(t => ({hp: t.state === 'standing' ? t.hp : 0, state: t.state === 'standing' ? 'standing' : 'gone'})),
       bushes: game.bushes.map(b => ({hp: b.state === 'standing' ? b.hp : 0, state: b.state === 'standing' ? 'standing' : 'gone'})),
       coconuts,
@@ -237,6 +248,7 @@ export function applyGameState({game, life, exploration, dayCycle, technology}, 
   game.player.root.position.set(save.player.x, save.player.y, save.player.z);
   game.player.root.rotation.y = save.player.heading;
   game.targetAngle = save.player.heading;
+  game.driftwood.restore(save.world.driftwood);
   for (const [i, item] of save.world.trees.entries()) {
     const t = game.trees[i]; t.hp = item.hp; t.state = item.state;
     if (item.state === 'gone') { t.root.visible = false; if (t.body) { game.world.removeRigidBody(t.body); t.body = null; } }

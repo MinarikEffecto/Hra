@@ -42,6 +42,7 @@ footer{left:auto;right:16px;bottom:20px}#buildBtn{width:48px;height:48px;padding
 
 #toast{z-index:45;opacity:0}
 #saveControls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:10px}#saveControls button{min-width:0;padding:8px 3px;font-size:11px;box-shadow:none;background:#e9f4e0;border-color:#a8c89e}
+#shoreStatus{margin:8px 0 0;padding:8px;border-radius:9px;background:#e4f2df;color:#22564d;font-size:11px;font-weight:700;line-height:1.35}
 #bagPanel{max-height:calc(100dvh - 112px);overflow-y:auto;overscroll-behavior:contain}
 @media(max-height:520px){#bagPanel{top:54px;max-height:calc(100dvh - 62px)}}
 

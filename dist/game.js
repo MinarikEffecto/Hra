@@ -7,8 +7,8 @@ import {Technology} from './technology.js';
 import {createTechnologyUI} from './technology-ui.js';
 import * as THREE from './vendor/three.module.js';
 import {GROUND,mat,mesh,makeScenery,ocean,makeBuilding,ball} from './world.js?v=23';
-import {RAPIER,IslandGame,canAffordBuilding} from './simulation.js?v=23';
-import {captureGameState,applyGameState,readFromStorage,saveToStorage,exportSave,validateSave} from './save-game.js?v=2';
+import {RAPIER,IslandGame,canAffordBuilding} from './simulation.js?v=24';
+import {captureGameState,applyGameState,readFromStorage,saveToStorage,exportSave,validateSave} from './save-game.js?v=3';
 const $=id=>document.getElementById(id),canvas=$('game');
 let renderer;
 try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});}catch(error){$('loading').innerHTML='<strong>3D grafiku se nepodařilo spustit.</strong><p>Zapni hardwarovou akceleraci prohlížeče a obnov stránku.</p>';throw error}
@@ -35,9 +35,9 @@ function sound(type,data){if(!audio||muted)return;const v=.92+Math.random()*.16;
 let toastTimer=0;function toast(text){$('toast').textContent=text;$('toast').style.opacity='1';toastTimer=3.5;}
 const chips=[],chipGeo=new THREE.BoxGeometry(.05,.035,.11),chipMat=mat(0xd5b17b);
 function burst(t,big=false){for(let i=0;i<(big?28:14);i++){const m=new THREE.Mesh(chipGeo,chipMat);m.position.set(t.x,GROUND+(big?.1:.8),t.z);scene.add(m);chips.push({m,v:new THREE.Vector3((Math.random()-.5)*3,1+Math.random()*2,(Math.random()-.5)*3),life:big?1.1:.6})}}
-let game,requestSave=()=>{};
+let game,requestSave=()=>{},refreshShoreStatus=()=>{};
 function hud(){$('wood').textContent=game.wood;$('leaves').textContent=game.leaves;document.querySelectorAll('.recipe').forEach(b=>b.disabled=!canAffordBuilding(game,b.dataset.type))}
-try{await RAPIER.init();game=new IslandGame(scene,(type,obj)=>{if(type==='vine'){game.inventory.vine++;sound('pickup');$('loot').textContent='🌿 Liána +1  →  🎒';$('loot').hidden=false;setTimeout(()=>{$('loot').hidden=true;},1500);}else if(type==='hit'){if(!playAxeHit())sound(type,obj);burst(obj);}else sound(type,obj);if(type==='fall'){burst(obj,true);toast('Polínka seber přiblížením.')}if(type==='pickup'||type==='build'||type==='vine'){hud();requestSave();}if(type==='build'){if(obj?.type==='fire')startCampfireAudio(obj);toast('Hotovo. Tvůj tábor se rozrůstá.')}});}catch(error){$('loading').innerHTML='<strong>Ostrov se nepodařilo načíst.</strong><p>Obnov prosím stránku.</p>';throw error}
+try{await RAPIER.init();game=new IslandGame(scene,(type,obj)=>{if(type==='vine'){game.inventory.vine++;sound('pickup');$('loot').textContent='🌿 Liána +1  →  🎒';$('loot').hidden=false;setTimeout(()=>{$('loot').hidden=true;},1500);}else if(type==='hit'){if(!playAxeHit())sound(type,obj);burst(obj);}else if(type==='driftwoodPickup'){sound('pickup');toast('Naplavené dřevo +2. Další dorazí za 90 sekund hraní.');refreshShoreStatus();}else if(type==='driftwoodReturn'){toast('Na východní břeh dorazilo další dřevo.');refreshShoreStatus();}else sound(type,obj);if(type==='fall'){burst(obj,true);toast('Polínka seber přiblížením.')}if(type==='pickup'||type==='driftwoodPickup'||type==='build'||type==='vine'){hud();requestSave();}if(type==='build'){if(obj?.type==='fire')startCampfireAudio(obj);toast('Hotovo. Tvůj tábor se rozrůstá.')}});}catch(error){$('loading').innerHTML='<strong>Ostrov se nepodařilo načíst.</strong><p>Obnov prosím stránku.</p>';throw error}
 game.inventory={coconut:0,fish:0,seafood:0,cooked:0,shell:0,coin:0,pearl:0,chest:0,relic:0,feather:0,meat:0,vine:0,clay:0,ore:0,charcoal:0,ash:0,ingot:0,copperCutter:false,strips:[],ropes:[]};game.craftingOpen=false;
 for(let t of game.trees)contact(t.x,t.z,.75);const playerContact=contact(.5,2.5,.6);
 const targetRing=mesh(new THREE.RingGeometry(.39,.44,40),new THREE.MeshBasicMaterial({color:0xfff5ba,transparent:true,opacity:.85,side:THREE.DoubleSide}),scene);targetRing.rotation.x=-Math.PI/2;targetRing.position.y=GROUND+.018;
@@ -68,6 +68,9 @@ function saveNow(showFeedback=false){if(!storage||!saveAllowed){if(showFeedback)
 requestSave=()=>{if(!saveAllowed)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveNow(),350);};game.requestSave=requestSave;
 setInterval(()=>saveNow(),15000);addEventListener('pagehide',()=>saveNow());addEventListener('visibilitychange',()=>{if(document.hidden)saveNow();});
 const saveControls=document.createElement('div');saveControls.id='saveControls';saveControls.innerHTML='<button id="saveNow" type="button">Uložit</button><button id="saveExport" type="button">Export</button><button id="saveImportBtn" type="button">Import</button><input id="saveImport" type="file" accept="application/json,.json" hidden aria-label="Vybrat zálohu hry">';$('bagPanel').append(saveControls);
+const shoreStatus=document.createElement('p');shoreStatus.id='shoreStatus';$('bagContents').before(shoreStatus);
+refreshShoreStatus=()=>{const {available,remaining}=game.driftwood.snapshot();const seconds=Math.ceil(remaining);shoreStatus.textContent=available?'🪵 Východní břeh: naplavené dřevo (2 ks)':'🪵 Východní břeh: další za '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' hraní';};
+refreshShoreStatus();setInterval(refreshShoreStatus,1000);
 $('saveNow').onclick=()=>saveNow(true);
 $('saveExport').onclick=()=>{try{const data=exportSave(captureGameState(saveContext)),url=URL.createObjectURL(new Blob([data],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='trosechnik-pozice.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);toast('Záloha pozice stažena.');}catch(error){toast('Zálohu se nepodařilo vytvořit.');console.warn('Save export:',error);}};
 $('saveImportBtn').onclick=()=>$('saveImport').click();$('saveImport').onchange=async event=>{const file=event.target.files?.[0];if(!file)return;try{if(file.size>2_000_000)throw Error('Příliš velký soubor');const imported=validateSave(await file.text());if(!storage||!compatibleWithIsland(imported))throw Error('Pozice neodpovídá ostrovu');saveToStorage(storage,imported,{isCompatible:compatibleWithIsland,overwriteFuture:true});saveAllowed=false;clearTimeout(saveTimer);location.reload();}catch(error){toast('Záloha není platná; současná pozice zůstala zachována.');console.warn('Save import:',error);}finally{event.target.value='';}};
