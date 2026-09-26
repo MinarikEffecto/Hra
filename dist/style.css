@@ -55,3 +55,18 @@ footer{left:auto;right:16px;bottom:20px}#buildBtn{width:48px;height:48px;padding
 .techCard p{line-height:1.4;font-size:14px;color:#4b6964}.techActions{display:grid;gap:9px}.techActions button{width:100%;min-height:70px;text-align:left;display:grid;gap:4px;background:#fff;border-color:#d6b983;box-shadow:none;touch-action:manipulation}.techActions button:disabled{opacity:.48;cursor:default;transform:none}.techActions small{font-size:12px;letter-spacing:0;font-weight:600;color:#56716a}
 #techProgress{padding:11px 13px;margin:12px 0;background:#e6efda;border-radius:12px;font-size:14px;font-weight:800}.techStock{margin-bottom:0}
 @media(max-height:520px){.techPanel{place-items:stretch center}.techCard{max-width:650px}.techActions{grid-template-columns:repeat(3,minmax(0,1fr))}.techActions button{min-height:90px;padding:8px;font-size:12px}.techActions small{font-size:10px}}
+
+/* A small, optional hint anchored away from movement and station controls. */
+#progressGuide{position:fixed;z-index:18;top:104px;left:12px;width:min(335px,calc(100vw - 24px));max-height:34dvh;overflow:auto;border:1px solid #ffffffbd;border-radius:14px;background:#fff8e9eb;box-shadow:0 5px 22px #17474b26;color:#17474b;backdrop-filter:blur(8px)}
+#progressGuide summary{position:relative;display:grid;gap:2px;padding:9px 27px 9px 12px;list-style:none;cursor:pointer;touch-action:manipulation}
+#progressGuide summary::-webkit-details-marker{display:none}
+#progressGuide summary::after{content:'⌄';position:absolute;top:10px;right:12px;font-size:17px;line-height:1}
+#progressGuide details[open] summary::after{content:'⌃'}
+#progressGuide .guideHeading{font-size:10px;letter-spacing:1px;font-weight:900;color:#47745f}
+#progressGuide strong{font-size:13px;line-height:1.2}
+#progressGuide small{font-size:11px;letter-spacing:0;line-height:1.25;color:#55746a;font-weight:800}
+#progressGuide p{margin:0;padding:0 12px 11px;font-size:12px;line-height:1.4;color:#4b6964}
+#progressGuide.guideDone{background:#e7f4dcea}
+body.crafting-open #progressGuide,body:has(#build:not([hidden])) #progressGuide,body:has(#bagPanel:not([hidden])) #progressGuide{visibility:hidden}
+@media(max-width:700px){#progressGuide{top:100px}}
+@media(max-height:500px){#progressGuide{top:51px;left:12px;width:min(300px,calc(100vw - 210px));max-height:55dvh}}
