@@ -63,6 +63,7 @@ try {
     base.world.trees[0] = {state: 'gone', hp: 0};
     base.world.coconuts[0] = 0;
     base.world.buildings = [{type: 'workbench', x: x + 2.6, z, rotation: 0}];
+    base.exploration.tool = 'axe';
     base.schemaVersion = 3;
     delete base.world.plantings;
     await seed(base);
@@ -75,7 +76,7 @@ try {
     if (label !== 'short-landscape') await click('#plantPalm');
     await page.screenshot({path: resolve(output, `${label}-seedling.png`)});
     const planted = await snapshot();
-    assert.equal(planted.schemaVersion, 4);
+    assert.equal(planted.schemaVersion, 5);
     assert.equal(planted.inventory.coconut, 1);
     assert.equal(planted.world.plantings.length, 1);
     assert.ok(planted.world.plantings[0].remaining > 160 && planted.world.plantings[0].remaining <= 180);

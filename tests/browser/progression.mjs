@@ -6,6 +6,7 @@ import {createReadStream, statSync, mkdtempSync, mkdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {resolve, extname} from 'node:path';
+import {firstToolsSteps, craftTool} from './first-tools-steps.mjs';
 
 const root = resolve(process.env.HRA_QA_DIST ?? fileURLToPath(new URL('../../dist/', import.meta.url)));
 const output = process.env.HRA_QA_OUTPUT ?? mkdtempSync(resolve(tmpdir(), 'hra-progression-'));
@@ -30,6 +31,7 @@ try {
     args:chromium.args,executablePath:await chromium.executablePath(),headless:true,
     viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1,
   });
+  await context.route('https://fonts.googleapis.com/**', route => route.fulfill({status: 200, contentType: 'text/css', body: ''}));
   const page = await context.newPage(), errors=[];
   page.on('pageerror',error => {errors.push(`pageerror: ${error.message}`);log('ERROR',errors.at(-1));});
   page.on('console',message => {if(message.type()==='error'){errors.push(`console: ${message.text()}`);log('ERROR',errors.at(-1));}});
@@ -87,11 +89,16 @@ try {
       const s=await snapshot(),dx=x-s.player.x,dz=z-s.player.z,d=Math.hypot(dx,dz);
       log('path',JSON.stringify({target:[x,z],current:[s.player.x,s.player.z],distance:d}));
       if(d<=tolerance)return s;
-      await move(dx,dz,Math.min(.75,Math.max(.17,(d-tolerance/2)/2.8)));
+      await move(dx,dz,Math.min(.75,Math.max(.06,(d-tolerance/2)/3.1)));
     }
     throw Error(`Cannot reach ${x},${z}`);
   }
   let s=await snapshot();
+  if (s.starter?.stage === 0) {
+    await firstToolsSteps({page, click: selector => page.locator(selector).tap(), snapshot, go,
+      holdTool: holdAxe, screenshot, log});
+    s = await snapshot();
+  }
   log('start',JSON.stringify({player:s.player,wood:s.resources.wood,inventory:s.inventory,trees:s.world.trees.slice(0,4),driftwood:s.world.driftwood,errors}));
   await screenshot('00-start');
   // First palm is left of the spawn. Approach to just over one metre.
@@ -117,14 +124,14 @@ try {
     log('second-palm-felled',JSON.stringify({player:s.player,wood:s.resources.wood,tree:s.world.trees[2]}));
     await screenshot('03-second-felled');
   }
-  if(s.availableWood<7 && !s.world.buildings.some(b=>b.type==='fire')){
+  if(s.availableWood<9 && !s.world.buildings.some(b=>b.type==='fire')){
     await go(-4.15,-1.8,.65);
     await go(-4.2,-2.6,.65);
     await go(-4.3,-3.4,.65);
     s=await snapshot();
     log('second-palm-collected',JSON.stringify({player:s.player,wood:s.resources.wood}));
   }
-  assert.ok(s.availableWood>=7||s.world.buildings.some(b=>b.type==='fire'),'need fire plus two spare wood');
+  assert.ok(s.availableWood>=9||s.world.buildings.some(b=>b.type==='fire'),'need fire, shovel and charcoal wood');
   if(!s.world.buildings.some(b=>b.type==='fire')){
     await page.locator('#buildBtn').tap();
     assert.ok(await page.locator('.recipe[data-type="fire"]').isEnabled());
@@ -136,6 +143,10 @@ try {
     assert.ok(s.world.buildings.some(b=>b.type==='fire'),'fire placement failed');
   }
   if(s.world.holes.length===0 || s.world.holes[0].level<4){
+    if (s.starter && !s.starter.shovel) {
+      await craftTool({page, click: selector => page.locator(selector).tap()}, 'shovel');
+      s = await snapshot();
+    }
     if(s.world.holes.length===0) s=await go(-2.2,-1.8,.42);
     if(!String(await page.locator('#tool').getAttribute('aria-label')).startsWith('Lopata'))await page.locator('#tool').tap();
     assert.equal(await page.locator('.chop').getAttribute('aria-label'),'Kopat');
@@ -219,6 +230,14 @@ try {
     await go(8.2,3.2,.65);
     s=await snapshot();
     log('fourth-palm-collected',JSON.stringify({player:s.player,wood:s.resources.wood,driftwood:s.world.driftwood}));
+  }
+  if (s.availableWood < 12 && !s.world.buildings.some(b=>b.type==='furnace')) {
+    await go(5.6, 5, .35);
+    for (let i=0;i<25;i++) {
+      s = await snapshot();
+      if (s.availableWood >= 12) break;
+      await page.waitForTimeout(3000);
+    }
   }
   assert.ok(s.availableWood>=12||s.world.buildings.some(b=>b.type==='furnace'),'need 4 furnace and 8 bench wood');
   log('four-palms',JSON.stringify({wood:s.resources.wood,trees:[0,2,1,7].map(i=>s.world.trees[i]),player:s.player}));
