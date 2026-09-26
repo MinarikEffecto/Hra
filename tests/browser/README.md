@@ -29,7 +29,8 @@ npm run progression --prefix tests/browser
 
 Tento delší scénář spouští skutečný 3D ostrov v mobilním Chromiu 390×844
 se softwarovým WebGL a novým profilem. Pohybuje hráčem dotykovým joystickem;
-nevkládá suroviny a nepřemisťuje hráče změnou herních dat. Pokácí čtyři palmy,
+nevkládá suroviny a nepřemisťuje hráče změnou herních dat. Nejprve sesbírá
+kameny a naplaveniny, vyrobí úštěp, sekáč a sekeru. Pokácí čtyři palmy,
 sesbírá dřevo, postaví ohniště, vypálí uhlí, vykope jíl a rudu, postaví pec,
 vytaví měď, postaví ponk a vyrobí řezák. Následují dvě lana a spoj na 2 m.
 Kontroluje obnovení rozpracované tavby, řezáku a spojeného lana po reloadu.
@@ -37,9 +38,26 @@ Počítejte s několika minutami podle výkonu softwarového vykreslování.
 
 Snímky a dočasný profil zůstávají v adresáři `HRA_QA_OUTPUT` nebo v novém
 dočasném adresáři. Konzolový výstup lze přesměrovat do souboru. Test čte
-vlastní uloženou pozici pro ověření, nikdy profil skutečného hráče. Omezení
-prostředí při načtení Google Fonts zapisuje, ale nepovažuje je za selhání
-herní logiky. Neodchycená chyba JavaScriptu test ukončí neúspěšně.
+vlastní uloženou pozici pro ověření, nikdy profil skutečného hráče. Externí
+Google Fonts jsou úmyslně vynechané, aby dostupnost cizího serveru neměnila
+výsledek testu. Neodchycená chyba JavaScriptu test ukončí neúspěšně.
+
+## První nástroje
+
+```sh
+npm run first-tools --prefix tests/browser
+```
+
+Samostatný průchod od holých rukou v novém profilu: kameny → úštěp →
+naplaveniny → sekáč → násada → reload → vazba → sekera → palma → lopata →
+jíl → reload. Používá skutečný pohyb a ovládání; do pozice nevkládá suroviny.
+Ověřuje také, že přepínání nástrojů na začátku nepřidělí hotové vybavení.
+
+Běží na desktopu 1280×800 s klávesnicí a myší a na dotykovém rozměru 390×844.
+V dotykovém běhu se dokončení sekery ověří i při otočení na 568×320.
+Volitelný argument `node tests/browser/first-tools.mjs portrait` nebo
+`desktop` vybere jediný profil. Výstup určuje `HRA_QA_OUTPUT` jako u ostatních
+scénářů. Externí fonty se nenačítají; fyzický telefon tímto není ověřen.
 
 ## Sázení a další sklizeň
 

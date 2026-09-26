@@ -190,6 +190,11 @@ Navazující větev `feature/2026-09-26-coconut-regrowth` přidává
 [sázení kokosů a růst palem](SAZENI-PALEM-2026-09-26.md), uložené ve formátu v4
 s převodem v1–v3. Je to samostatný kandidát navazující na PR #1, zatím bez vydání.
 
+Větev `feature/2026-09-26-first-tools` navazuje na PR #2 a přidává
+[první nástroje od holých rukou](PRVNI-NASTROJE-2026-09-26.md): kameny,
+úštěp, sekáč, násadu, vazbu, sekeru a výrobu lopaty. Formát v5 zachovává
+vybavení starých pozic v1–v4. Ani tato větev zatím není vydaná na Sites.
+
 - [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) – větve, kontrola a začleňování změn.
 - [ChatGPT Sites](https://learn.chatgpt.com/docs/sites) – verze, publikování, hosting a úložiště D1/R2.
 
