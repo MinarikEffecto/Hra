@@ -31,6 +31,20 @@ function memoryStorage() {
   return {getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), values};
 }
 
+function islandWithLife() {
+  const nodes = new Map();
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, {id, classList: {toggle() {}}, setAttribute() {}, after() {}});
+    return nodes.get(id);
+  };
+  globalThis.document = {createElement: () => node(Symbol()), getElementById: node};
+  globalThis.addEventListener = () => {};
+  const island = freshIsland();
+  island.life = createIslandLife(island.game.scene, island.game,
+    {toast() {}, hud() {}, sound() {}, noise() {}, tone() {}, wakeAudio() {}});
+  return island;
+}
+
 test('a real island survives a save/reload with inventory, workshop outputs, bench, excavation and survival state', () => {
   const before = freshIsland();
   const {game, life, exploration} = before;
@@ -110,6 +124,33 @@ test('a felled palm is not resurrected and its resources do not vanish mid-fall'
   assert.equal(after.game.leaves, 6);
 });
 
+test('coconuts on a falling palm survive reload and older broken saves recover them', () => {
+  const before = islandWithLife();
+  const tree = before.game.trees[0];
+  tree.hp = 1; // A shotgun shot reduces a standing palm to one hit point.
+  before.game.hit(tree);
+  assert.equal(tree.state, 'falling');
+  assert.equal(before.life.getCoconutCounts()[0], 2);
+  assert.equal(before.life.getPendingCoconuts(), 1);
+
+  const saved = captureGameState(before);
+  assert.equal(saved.inventory.coconut, 3);
+  assert.equal(saved.world.coconuts[0], 0);
+  const after = islandWithLife();
+  applyGameState(after, saved);
+  assert.equal(after.game.trees[0].root.visible, false);
+  assert.equal(after.life.getCoconutCounts()[0], 0);
+  assert.equal(after.game.inventory.coconut, 3);
+
+  const olderMidFall = structuredClone(saved);
+  olderMidFall.inventory.coconut = 1;
+  olderMidFall.world.coconuts[0] = 2;
+  const recovered = islandWithLife();
+  applyGameState(recovered, olderMidFall);
+  assert.equal(recovered.game.inventory.coconut, 3);
+  assert.equal(recovered.life.getCoconutCounts()[0], 0);
+});
+
 test('the deepest permitted ordinary excavation can be saved and restored', () => {
   const before = freshIsland();
   const hole = {
@@ -132,27 +173,14 @@ test('the deepest permitted ordinary excavation can be saved and restored', () =
 });
 
 test('shot wildlife stays dead and its airborne drops survive save/reload', () => {
-  const nodes = new Map();
-  const node = id => {
-    if (!nodes.has(id)) nodes.set(id, {id, classList: {toggle() {}}, setAttribute() {}, after() {}});
-    return nodes.get(id);
-  };
-  globalThis.document = {createElement: () => node(Symbol()), getElementById: node};
-  globalThis.addEventListener = () => {};
-  function withLife() {
-    const island = freshIsland();
-    island.life = createIslandLife(island.game.scene, island.game,
-      {toast() {}, hud() {}, sound() {}, noise() {}, tone() {}, wakeAudio() {}});
-    return island;
-  }
-  const before = withLife();
+  const before = islandWithLife();
   let requested = 0;
   before.game.requestSave = () => requested++;
   before.game.shootables[0].onShot();
   assert.equal(before.game.shootables[0].alive, false);
   assert.equal(requested, 1);
   assert.deepEqual(before.life.getPendingAnimalDrops(), {feather: 4, meat: 1, shell: 0});
-  const after = withLife();
+  const after = islandWithLife();
   applyGameState(after, captureGameState(before));
   assert.equal(after.game.shootables[0].alive, false);
   assert.equal(after.game.shootables[0].root.visible, false);

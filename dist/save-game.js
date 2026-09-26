@@ -120,6 +120,13 @@ export function validateSave(raw) {
   clean.world.coconuts = requireArray(world.coconuts, 'world.coconuts', 100)
     .map((count, i) => requireNumber(count, `world.coconuts[${i}]`, 0, 3, true));
   if (clean.world.coconuts.length !== clean.world.trees.length) throw new SaveGameError('Počet kokosů neodpovídá palmám');
+  // Older mid-fall saves may mark a palm gone while leaving coconuts on its
+  // invisible crown. Recover those coconuts when reading either save schema.
+  for (const [i, tree] of clean.world.trees.entries()) {
+    if (tree.state !== 'gone' || !clean.world.coconuts[i]) continue;
+    clean.inventory.coconut = requireNumber(clean.inventory.coconut + clean.world.coconuts[i], 'inventory.coconut', 0, 1e6, true);
+    clean.world.coconuts[i] = 0;
+  }
   clean.world.holes = requireArray(world.holes, 'world.holes', 100).map((entry, i) => {
     const h = requireObject(entry, `world.holes[${i}]`);
     const flood = h.flood === null ? null : requireObject(h.flood, `world.holes[${i}].flood`);
@@ -162,6 +169,14 @@ export function captureGameState({game, life, exploration, dayCycle, technology}
   inventory.strips = [...(game.inventory.strips ?? [])];
   inventory.ropes = (game.inventory.ropes ?? []).map(r => ({length: r.length, quality: r.quality}));
   inventory.copperCutter = game.inventory.copperCutter ?? false;
+  const coconuts = [...(life.getCoconutCounts?.() ?? game.trees.map(() => 3))];
+  // A falling palm is restored as gone, so its attached coconuts must join the
+  // pending drops in the inventory rather than remain on an invisible tree.
+  for (const [i, tree] of game.trees.entries()) {
+    if (tree.state !== 'falling') continue;
+    inventory.coconut += coconuts[i];
+    coconuts[i] = 0;
+  }
   const falling = game.trees.filter(t => t.state === 'falling').length;
   const buildings = game.buildings.map(b => ({type: b.type, x: b.x, z: b.z, rotation: b.visual.rotation.y}));
   const buildingIndex = b => game.buildings.indexOf(b);
@@ -177,7 +192,7 @@ export function captureGameState({game, life, exploration, dayCycle, technology}
     world: {buildings,
       trees: game.trees.map(t => ({hp: t.state === 'standing' ? t.hp : 0, state: t.state === 'standing' ? 'standing' : 'gone'})),
       bushes: game.bushes.map(b => ({hp: b.state === 'standing' ? b.hp : 0, state: b.state === 'standing' ? 'standing' : 'gone'})),
-      coconuts: life.getCoconutCounts?.() ?? game.trees.map(() => 3),
+      coconuts,
       holes: exploration.holes.map(h => ({x: h.x, z: h.z, level: h.level, pyramid: !!h.pyramid,
         flood: h.flood ? {height: h.flood.height, sourceX: h.flood.sourceX, sourceZ: h.flood.sourceZ} : null})).filter(h => h.level > 0)},
     survival: {satiety: state.satiety, torch: state.torch, lit: state.lit,
