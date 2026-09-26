@@ -51,12 +51,15 @@ try {
       await page.evaluate(data => { localStorage.clear(); localStorage.setItem('trosechnik.save.v1', JSON.stringify(data)); }, save);
       await load();
     }
+    await page.goto(`${url}/fixture`);
+    await page.evaluate(() => localStorage.clear());
     await load();
     const base = await snapshot();
     const [x, z] = base.world.layout.trees[0].map(n => n / 1000);
     base.player = {x: x + 1, y: .22, z, heading: -Math.PI / 2};
     base.clock = {hour: 12, speed: 0};
     base.inventory.coconut = 2;
+    base.resources = {wood: 0, leaves: 0};
     base.world.trees[0] = {state: 'gone', hp: 0};
     base.world.coconuts[0] = 0;
     base.world.buildings = [{type: 'workbench', x: x + 2.6, z, rotation: 0}];
