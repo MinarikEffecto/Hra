@@ -1,3 +1,4 @@
+import {TOOL_LABELS} from './starter-tools.js';
 import {holeRadius} from './palm-growth.js';
 import * as THREE from './vendor/three.module.js';
 import {GROUND,inside,islandRadius,ball,rod,mesh,mat,box} from './world.js?v=23';
@@ -11,7 +12,7 @@ const lootMeta={shell:['🐚','Mušle'],coin:['🪙','Mince'],pearl:['◉','Perl
 
 export function createExploration(scene,game,{sound,noise}){
  const $=id=>document.getElementById(id),player=game.player,inventory=game.inventory;
- let tool='axe',digTime=0,gunTime=0,pending=null,walkBlend=0,bagTick=0,workshop=null;
+ let tool=game.starterTools?.tool??'axe',digTime=0,gunTime=0,pending=null,walkBlend=0,bagTick=0,workshop=null;
  const holes=[],sand=[],finds=[],floods=[],terrain=scene.userData.terrain;
 
  for(const leg of player.legs){ball(leg,0,-.35,.065,.12,0x77503b,[.95,.65,1.6]);rod(leg,[-.07,-.31,.17],[.07,-.31,.17],.012,0xe6cba1);}
@@ -19,6 +20,7 @@ export function createExploration(scene,game,{sound,noise}){
  const head=player.body.children.find(o=>o.isGroup&&o.position.y>1),eyes=[];if(head){eyes.push(...head.children.filter(o=>o.geometry?.type==='IcosahedronGeometry'&&o.position.z>.22&&Math.abs(o.position.x)>.07));for(const x of [-.095,.095])rod(head,[x-.028,.08,.231],[x+.028,.084,.231],.012,0x624231);const smile=mesh(new THREE.TorusGeometry(.045,.009,4,12,Math.PI),mat(0xa65f45),head,0,-.083,.245);smile.rotation.z=Math.PI;}
  const shovel=new THREE.Group();shovel.position.copy(player.axe.position);player.arms[1].add(shovel);rod(shovel,[0,-.2,0],[0,.55,.09],.029,0xb38a56);ball(shovel,0,-.3,0,.17,0x9dbbbc,[.8,1.3,.22]);rod(shovel,[-.07,.55,.09],[.07,.55,.09],.025,0x7f583b);shovel.visible=false;
  const shotgun=new THREE.Group();shotgun.position.set(0,-.18,.03);player.arms[1].add(shotgun);box(shotgun,0,.03,.28,.12,.13,.56,0x704728);box(shotgun,0,.04,.72,.085,.085,.48,0x59666a);box(shotgun,0,-.11,.06,.1,.28,.16,0x8c5a31);const muzzle=ball(shotgun,0,.04,.99,.12,0xffd45d);muzzle.material=muzzle.material.clone();muzzle.material.emissive=new THREE.Color(0xff8b2b);muzzle.material.emissiveIntensity=3;muzzle.visible=false;shotgun.visible=false;
+ const primitive=new THREE.Group();primitive.position.copy(player.axe.position);player.arms[1].add(primitive);const primitiveHandle=rod(primitive,[0,-.12,0],[0,.28,.05],.035,0x956c45);const sharpStone=ball(primitive,.06,.28,.05,.16,0x859b9c,[.75,1.1,.24]);primitive.visible=false;
  // The excavation target must remain legible when a tree or building blocks the spot.
  const digMarkerMaterial=new THREE.MeshBasicMaterial({color:0xffefad,transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:false,depthWrite:false});
  const digMarker=mesh(new THREE.RingGeometry(.2,.27,40),digMarkerMaterial,scene);digMarker.rotation.x=-Math.PI/2;digMarker.renderOrder=5;digMarker.visible=false;
@@ -32,8 +34,11 @@ export function createExploration(scene,game,{sound,noise}){
  const glint=ball(pyramid,0,1.88,0,.045,0xffdf77);glint.material=glint.material.clone();glint.material.emissive=new THREE.Color(0xffc64d);glint.material.emissiveIntensity=1.2;
 
  const shovelIcon='<svg viewBox="0 0 32 32" width="25" height="25" aria-hidden="true"><path d="M12 3h8v5l-4 3-4-3z" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 10v11" stroke="#9b703d" stroke-width="3"/><path d="M10 20h12v5l-6 5-6-5z" fill="#749ba1" stroke="currentColor" stroke-width="1.5"/></svg>';
- const tools=['axe','shovel','shotgun'],originalChop=game.chop.bind(game);game.chop=()=>tool==='shovel'?dig():tool==='shotgun'?shoot():originalChop();
- function select(direction=1){if(game.craftingOpen||game.swing||digTime||gunTime||game.pendingHit)return;const index=(tools.indexOf(tool)+direction+tools.length)%tools.length;tool=tools[index];player.axe.visible=tool==='axe';shovel.visible=tool==='shovel';shotgun.visible=tool==='shotgun';const icon=tool==='axe'?'🪓':tool==='shovel'?shovelIcon:'🔫',label=tool==='axe'?'Sekera':tool==='shovel'?'Lopata':'Brokovnice',action=tool==='axe'?'Sekat':tool==='shovel'?'Kopat':'Vystřelit';$('tool').innerHTML=icon;$('tool').setAttribute('aria-label',`${label}. Přepnout nástroj`);$('tool').setAttribute('aria-pressed',String(tool!=='axe'));document.querySelector('.chop').innerHTML=icon;document.querySelector('.chop').setAttribute('aria-label',action);}
+ const originalChop=game.chop.bind(game),tools=()=>game.starterTools?.tools()??['axe','shovel','shotgun'];
+ game.chop=()=>tool==='hands'?false:tool==='shovel'?dig():tool==='shotgun'?shoot():originalChop();
+ function refreshTools(preferred){const owned=tools();tool=owned.includes(preferred)?preferred:owned.includes(tool)?tool:owned[0];player.axe.visible=tool==='axe';shovel.visible=tool==='shovel';shotgun.visible=tool==='shotgun';primitive.visible=tool==='flake'||tool==='chopper';primitiveHandle.visible=tool==='chopper';const icon=tool==='shovel'?shovelIcon:({hands:'✋',flake:'◈',chopper:'🪨',axe:'🪓',shotgun:'🔫'})[tool],label=TOOL_LABELS[tool],action=tool==='hands'?'Holé ruce':tool==='shovel'?'Kopat':tool==='shotgun'?'Vystřelit':'Sekat';$('tool').innerHTML=icon;$('tool').setAttribute('aria-label',`${label}. Přepnout nástroj`);$('tool').setAttribute('aria-pressed',String(tool!=='axe'));document.querySelector('.chop').innerHTML=icon;document.querySelector('.chop').setAttribute('aria-label',action);}
+ function select(direction=1){if(game.craftingOpen||game.swing||digTime||gunTime||game.pendingHit)return;const owned=tools(),index=(owned.indexOf(tool)+direction+owned.length)%owned.length;refreshTools(owned[index]);}
+ game.refreshTools=refreshTools;refreshTools();
  $('tool').onclick=()=>select(1);addEventListener('keydown',e=>{if(e.key.toLowerCase()==='q'&&!e.repeat&&!['INPUT','SELECT','BUTTON'].includes(e.target.tagName))select(1);});
 
  function shoot(){
@@ -91,7 +96,7 @@ export function createExploration(scene,game,{sound,noise}){
  function updateBag(){
   const strips=inventory.strips?.length||0,ropes=inventory.ropes?.length||0,ropeLength=inventory.ropes?.reduce((n,r)=>n+r.length,0)||0,atBench=nearWorkbench();
   const ropeDetail=ropes?inventory.ropes.map(r=>`${r.length} m / ${r.quality} %`).join(' · '):'';
-  const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lana ${ropeLength} m · ${ropeDetail}`:'Lano',ropes,'join'],['🟫','Jíl',inventory.clay],['🪨','Měděná ruda',inventory.ore],['⚫','Dřevěné uhlí',inventory.charcoal],['⬜','Popel',inventory.ash],['🟠','Měděný ingot',inventory.ingot],['✂️','Měděný řezák',Number(inventory.copperCutter)],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
+  const entries=[['🪨','Kameny',inventory.stone],['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lana ${ropeLength} m · ${ropeDetail}`:'Lano',ropes,'join'],['🟫','Jíl',inventory.clay],['🪨','Měděná ruda',inventory.ore],['⚫','Dřevěné uhlí',inventory.charcoal],['⬜','Popel',inventory.ash],['🟠','Měděný ingot',inventory.ingot],['✂️','Měděný řezák',Number(inventory.copperCutter)],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
   const signature=JSON.stringify([atBench,entries]);
   if(signature===bagSignature)return;
   bagSignature=signature;
@@ -124,7 +129,7 @@ export function createExploration(scene,game,{sound,noise}){
   game.requestSave?.();
  }
 
- return {dig,select,get tool(){return tool},inventory,holes,floods,pyramid,restoreFloods(savedHoles=[]){savedHoles.forEach((saved,i)=>{if(saved.flood&&holes[i])startFlood(holes[i],saved.flood.sourceX,saved.flood.sourceZ,saved.flood.height);});for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
+ return {dig,select,refreshTools,get tool(){return tool},inventory,holes,floods,pyramid,restoreFloods(savedHoles=[]){savedHoles.forEach((saved,i)=>{if(saved.flood&&holes[i])startFlood(holes[i],saved.flood.sourceX,saved.flood.sourceZ,saved.flood.height);});for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
   const marker=digTarget();digMarker.visible=tool==='shovel'&&!game.craftingOpen;if(digMarker.visible){digMarker.position.set(marker.x,terrain.heightAt(marker.x,marker.z)+.028,marker.z);digMarkerMaterial.color.set(marker.valid?0xffefad:0xf06f61);digMarker.scale.setScalar(.96+Math.sin(game.elapsed*5)*.04);}
   if(pending){pending.at-=dt;if(pending.at<=0){uncover(pending);pending=null;}}digTime=Math.max(0,digTime-dt);gunTime=Math.max(0,gunTime-dt);muzzle.visible=gunTime>.2;const moving=game.walk!==0;walkBlend=THREE.MathUtils.damp(walkBlend,moving?1:0,9,dt);const t=game.elapsed;
   player.body.rotation.z=Math.sin(game.walk)*.045*walkBlend;player.body.rotation.y=Math.sin(game.walk)*.05*walkBlend;player.body.position.y=Math.abs(Math.sin(game.walk))*.045*walkBlend+Math.sin(t*2.1)*.009;player.body.scale.y=1+Math.sin(t*2.1)*.008;player.body.rotation.x=game.swimming?.42:digTime?Math.sin((.82-digTime)/.82*Math.PI)*.42:game.swing?Math.sin((.5-game.swing)/.5*Math.PI)*.09:walkBlend*.045;

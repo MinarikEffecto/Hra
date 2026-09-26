@@ -13,22 +13,57 @@ function near(game, type) {
 }
 
 function woodGoal(game, amount, purpose, touch) {
-  const trees = game.trees?.some(t => t.kind !== 'bush' && t.state === 'standing');
+  const trees = game.trees?.some(t => t.kind !== 'bush' && t.state === 'standing' && (!game.starterTools || game.starterTools.canHarvest(t)));
   const falling = game.trees?.some(t => t.state === 'falling');
   const logs = game.logs?.length > 0;
   const driftwood = game.driftwood?.snapshot();
   const action = logs ? 'Posbírej ležící polena na ostrově.' :
     falling ? 'Počkej na dopad palmy a seber polena.' :
-    trees ? `Pokácej palmu (${touch ? 'podrž sekeru' : 'F'}) a seber dřevo.` :
+    trees ? `Pokácej palmu (${touch ? (game.starterTools?.state.stage === 2 ? 'podrž sekáč' : 'podrž sekeru') : 'F'}) a seber dřevo.` :
     driftwood?.available ? 'Seber naplavené dřevo a listí na východním břehu.' :
     driftwood ? `Počkej na další naplaveniny u východního břehu (${Math.ceil(driftwood.remaining)} s hraní).` :
     'Další dřevo teď na ostrově není k dispozici.';
   return {key: `wood-${purpose}`, action, stock: `Dřevo ${game.wood}/${amount} · ${purpose}`,
     help: logs ? 'Přibliž se k ležícím polenům.' :
       falling ? 'Padající palma nejprve musí dopadnout. Pak se k polenům přibliž.' :
-      trees ? 'Přijdi k palmě se sekerou. Polena seber přiblížením.' :
+      trees ? `Přijdi k palmě ${game.starterTools?.state.stage === 2 ? 'se sekáčem' : 'se sekerou'}. Polena seber přiblížením.` :
       driftwood ? 'Na východní pláž pravidelně připlouvá poleno s listy. Přibliž se k němu; dává 2 dřeva a 2 palmové listy a vrací se po 90 sekundách hraní.' :
       'S dostupnými zásobami tento postup zatím nejde dokončit.'};
+}
+
+function stonesGoal(game, amount) {
+  const piles = game.starterTools.state.piles;
+  return {key: 'starter-stones', action: piles.some(n => n === 0) ? 'Seber označené kameny u cest.' :
+    `Další kameny za ${Math.ceil(Math.min(...piles))} s hraní.`,
+    stock: `Kameny ${game.inventory.stone ?? 0}/${amount}`,
+    help: 'Dvě šedé oblázkové hromádky najdeš blízko startu, další směrem do středu ostrova. Kameny seber přiblížením. Každá hromádka dává 2 a obnoví se za minutu hraní.'};
+}
+
+export function firstToolsGoal(game, {touch = false} = {}) {
+  const tools = game.starterTools;
+  if (!tools) return null;
+  const s = tools.state;
+  const craft = (id, label, stock) => ({key: `starter-${id}`, action: `V batohu vyrob: ${label}.`, stock,
+    help: 'Otevři batoh a klepni na Vyrobit nástroj. Další recepty se zpřístupní postupně.'});
+  if (s.stage === 0) return tools.count('stone') < 2 ? stonesGoal(game, 2) : craft('flake', 'Ostrý úštěp', '2 kameny → ostří na keře');
+  if (s.stage === 1) {
+    if (tools.count('stone') < 1) return stonesGoal(game, 1);
+    if (game.wood < 1) return woodGoal(game, 1, 'na sekáč', touch);
+    return craft('chopper', 'Provizorní sekáč', `Kámen ${tools.count('stone')}/1 · dřevo ${game.wood}/1`);
+  }
+  if (s.stage === 2) {
+    if (!s.handle) return game.wood < 1 ? woodGoal(game, 1, 'na násadu', touch) : craft('handle', 'Opracovat násadu', `Dřevo ${game.wood}/1`);
+    if (!s.binding) return game.leaves < 2 ? {key: 'starter-leaves', action: 'Posekej keř nebo palmu a seber listy.',
+      stock: `Listy ${game.leaves}/2 · násada hotová`, help: 'Použij sekáč. Dva listy poslouží jako základní vazba. Listí najdeš i v naplaveninách na východním břehu.'} :
+      craft('binding', 'Připravit vazbu', `Listy ${game.leaves}/2 · násada hotová`);
+    return craft('axe', 'Sestavit sekeru', 'Sekáč + násada + vazba připravené');
+  }
+  if (!s.shovel) {
+    if (tools.count('stone') < 1) return stonesGoal(game, 1);
+    if (game.wood < 2) return woodGoal(game, 2, 'na lopatu', touch);
+    return craft('shovel', 'Vyrobit lopatu', `Dřevo ${game.wood}/2 · kámen ${tools.count('stone')}/1`);
+  }
+  return null;
 }
 
 function digGoal(game, exploration, needClay) {
@@ -45,6 +80,8 @@ function digGoal(game, exploration, needClay) {
 
 /** Pick one actionable instruction from the current state, including restored jobs. */
 export function firstSmeltingGoal(game, technology, exploration, {touch = false} = {}) {
+  const starter = firstToolsGoal(game, {touch});
+  if (starter) return starter;
   const inv = game.inventory;
   const has = type => game.buildings.some(b => b.type === type);
   const furnace = has('furnace');

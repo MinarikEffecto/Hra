@@ -5,7 +5,7 @@ import {makeScenery} from '../dist/world.js';
 import {RAPIER, IslandGame} from '../dist/simulation.js';
 import {createIslandLife} from '../dist/life.js';
 import {PalmGrowth, PALM_GROWTH_SECONDS} from '../dist/palm-growth.js';
-import {captureGameState, applyGameState, validateSave, exportSave, saveToStorage, isSaveCompatibleWithIsland, SaveGameError} from '../dist/save-game.js';
+import {SAVE_SCHEMA_VERSION, captureGameState, applyGameState, validateSave, exportSave, saveToStorage, isSaveCompatibleWithIsland, SaveGameError} from '../dist/save-game.js';
 
 await RAPIER.init();
 
@@ -129,7 +129,7 @@ test('v4 saves resume seedlings and fruit without changing island identity or cr
   before.game.palmGrowth.plant(tree);
   before.game.palmGrowth.update(77.5);
   const saved = captureGameState(before);
-  assert.equal(saved.schemaVersion, 4);
+  assert.equal(saved.schemaVersion, SAVE_SCHEMA_VERSION);
   assert.deepEqual(saved.world.plantings, [{treeIndex: 0, remaining: 102.5}]);
   assert.deepEqual(saved.world.trees[0], {hp: 0, state: 'gone'});
   const after = fresh();

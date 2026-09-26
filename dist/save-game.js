@@ -4,8 +4,9 @@ import {RAPIER, COSTS} from './simulation.js';
 import {TECH_RECIPES} from './technology.js';
 import {DRIFTWOOD_RESPAWN_SECONDS} from './driftwood.js';
 import {PALM_GROWTH_SECONDS, isPlantingSiteClear} from './palm-growth.js';
+import {starterState, validateStarterState, availableTools} from './starter-tools.js';
 
-export const SAVE_SCHEMA_VERSION = 4;
+export const SAVE_SCHEMA_VERSION = 5;
 export const SAVE_WORLD_ID = 'trosechnik-maly-ostrov-1';
 // Keep the original slot names so existing browser positions remain discoverable.
 export const SAVE_KEY = 'trosechnik.save.v1';
@@ -13,9 +14,9 @@ export const BACKUP_KEY = 'trosechnik.save.backup.v1';
 
 const LEGACY_COUNTERS = ['coconut', 'fish', 'seafood', 'cooked', 'shell', 'coin', 'pearl', 'chest', 'relic', 'feather', 'meat', 'vine'];
 const NEW_COUNTERS = ['clay', 'ore', 'charcoal', 'ash', 'ingot'];
-const COUNTERS = [...LEGACY_COUNTERS, ...NEW_COUNTERS];
+const COUNTERS = [...LEGACY_COUNTERS, ...NEW_COUNTERS, 'stone'];
 const TREE_STATES = ['standing', 'gone'];
-const TOOLS = ['axe', 'shovel', 'shotgun'];
+const TOOLS = ['hands', 'flake', 'chopper', 'axe', 'shovel', 'shotgun'];
 const MAX_JSON_LENGTH = 2_000_000;
 
 export class SaveGameError extends Error {
@@ -81,7 +82,7 @@ export function validateSave(raw) {
     try { data = JSON.parse(data); } catch { throw new SaveGameError('Uložená hra není platný JSON'); }
   }
   data = requireObject(data, 'save');
-  if (![1, 2, 3, SAVE_SCHEMA_VERSION].includes(data.schemaVersion)) {
+  if (![1, 2, 3, 4, SAVE_SCHEMA_VERSION].includes(data.schemaVersion)) {
     throw new SaveGameError('Nepodporovaná verze uložené hry',
       typeof data.schemaVersion === 'number' && Number.isFinite(data.schemaVersion) && data.schemaVersion > SAVE_SCHEMA_VERSION ? 'FUTURE_SCHEMA' : 'INVALID_SAVE');
   }
@@ -107,7 +108,13 @@ export function validateSave(raw) {
     survival: {satiety: requireNumber(survival.satiety, 'survival.satiety', 0, 100), torch: requireBoolean(survival.torch, 'survival.torch'), lit: requireBoolean(survival.lit, 'survival.lit'), traps: [], cooking: null, wildlife: null},
     exploration: {tool: requireChoice(requireObject(data.exploration, 'exploration').tool, TOOLS, 'exploration.tool')},
     technology: {job: null},
+    starter: starterState(true),
   };
+  if (data.schemaVersion >= 5) {
+    try { clean.starter = validateStarterState(data.starter); }
+    catch (error) { throw new SaveGameError(error.message); }
+  }
+  if (!availableTools(clean.starter).includes(clean.exploration.tool)) throw new SaveGameError('Vybraný nástroj ještě není vyrobený');
   if (clean.survival.lit && !clean.survival.torch) throw new SaveGameError('Rozsvícená louč musí existovat');
   const wildlife = requireObject(survival.wildlife, 'survival.wildlife');
   const birds = requireArray(wildlife.birds, 'survival.wildlife.birds', 3);
@@ -117,6 +124,7 @@ export function validateSave(raw) {
     creatures: creatures.map((v,i) => requireBoolean(v, `survival.wildlife.creatures[${i}]`))};
   for (const key of LEGACY_COUNTERS) clean.inventory[key] = requireNumber(inventory[key], `inventory.${key}`, 0, 1e6, true);
   for (const key of NEW_COUNTERS) clean.inventory[key] = legacy ? 0 : requireNumber(inventory[key], `inventory.${key}`, 0, 1e6, true);
+  clean.inventory.stone = data.schemaVersion < 5 ? 0 : requireNumber(inventory.stone, 'inventory.stone', 0, 1e6, true);
   clean.inventory.copperCutter = legacy ? false : requireBoolean(inventory.copperCutter, 'inventory.copperCutter');
   clean.inventory.strips = requireArray(inventory.strips, 'inventory.strips', 10000)
     .map((n, i) => requireNumber(n, `inventory.strips[${i}]`, 0, 100));
@@ -264,6 +272,7 @@ export function captureGameState({game, life, exploration, dayCycle, technology}
       cooking: state.cooking ? {buildingIndex: buildingIndex(state.cooking.fire), kind: state.cooking.kind, remaining: state.cooking.remaining} : null},
     exploration: {tool: exploration.tool},
     technology: {job: technology?.job ? {kind: technology.job.kind, buildingIndex: buildingIndex(technology.job.building), remaining: technology.job.remaining} : null},
+    starter: game.starterTools?.snapshot() ?? starterState(true),
   };
   return validateSave(result);
 }
@@ -292,6 +301,8 @@ export function applyGameState({game, life, exploration, dayCycle, technology}, 
     throw new SaveGameError('Uložená pozice neodpovídá čistě spuštěnému ostrovu');
   }
   const state = life.state ?? life;
+  game.starterTools?.restore(save.starter);
+  exploration.refreshTools?.();
   game.wood = save.resources.wood;
   game.leaves = save.resources.leaves;
   for (const key of COUNTERS) game.inventory[key] = save.inventory[key];

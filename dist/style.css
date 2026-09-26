@@ -52,6 +52,13 @@ footer{left:auto;right:16px;bottom:20px}#buildBtn{width:48px;height:48px;padding
 #palmGrowth strong{font-size:13px}#palmGrowth p{font-size:12px;line-height:1.4;margin:6px 0 9px}
 #palmGrowth button{width:100%;min-height:44px;padding:8px;font-size:12px;box-shadow:none;touch-action:manipulation}
 #palmGrowth button:disabled{opacity:.5;cursor:default}
+#starterOpen{width:100%;min-height:44px;margin:8px 0;padding:9px;font-size:13px;background:#e4eed5;box-shadow:none}
+#starterRecipes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#starterRecipes button{display:grid;gap:5px;text-align:left;padding:13px;background:#fff;box-shadow:none;touch-action:manipulation}
+#starterRecipes button strong{font-size:15px}#starterRecipes button small{font-size:12px;letter-spacing:0;color:#386555}
+#starterRecipes button span{font-size:12px;font-weight:500;line-height:1.3;color:#55736a}
+#starterRecipes button:disabled{opacity:.48;cursor:default}#starterRecipes button.starterDone{background:#e6efd9;opacity:.8}
+@media(max-width:500px){#starterRecipes{grid-template-columns:1fr}#starterRecipes button{padding:10px}}
 #bagPanel{max-height:calc(100dvh - 112px);overflow-y:auto;overscroll-behavior:contain}
 @media(max-height:520px){#bagPanel{top:54px;max-height:calc(100dvh - 62px)}}
 
