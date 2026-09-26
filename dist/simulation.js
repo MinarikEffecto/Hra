@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import RAPIER from './vendor/rapier.es.js';
 import {GROUND,palm,createPlayer,logMesh,makeBuilding,inside,rod,carveTrunk,singleLeaf} from './world.js?v=23';
-import {Driftwood, DRIFTWOOD_WOOD} from './driftwood.js';
+import {Driftwood, DRIFTWOOD_WOOD, DRIFTWOOD_LEAVES} from './driftwood.js?v=2';
 export {RAPIER};
 export const COSTS={fire:5,trap:8,shelter:12,workbench:8,furnace:4};
 export const FURNACE_COST={clay:3,ash:1};
@@ -25,7 +25,7 @@ update(dt,input={}){
  if(len&&this.swing<.1){const amount=moveSpeed*dt*Math.min(1,Math.hypot(input.x||0,input.z||0)),nx=p.x+dx/len*amount,nz=p.z+dz/len*amount,withinWorld=Math.hypot(nx,nz)<12.2;if(withinWorld&&!this.trees.some(t=>t.state==='standing'&&Math.hypot(t.x-nx,t.z-nz)<.48)&&!this.buildings.some(b=>Math.hypot(b.x-nx,b.z-nz)<(b.collisionRadius||(b.type==='shelter'?.95:.63)))){p.x=nx;p.z=nz}this.targetAngle=Math.atan2(dx,dz);this.walk+=dt*(this.swimming?7:11);if(this.grounded&&!this.swimming&&this.elapsed>=this.nextStep){this.nextStep=this.elapsed+(waterDepth>.08?.42:.31);this.event('step',{wet:waterDepth>.08})}}else this.walk=0;
  let da=Math.atan2(Math.sin(this.targetAngle-this.player.root.rotation.y),Math.cos(this.targetAngle-this.player.root.rotation.y));this.player.root.rotation.y+=da*Math.min(1,dt*15);const terrainY=this.terrain?.heightAt(p.x,p.z)??GROUND;if(this.swimming){if(!wasSwimming)this.event('water');this.grounded=true;this.verticalVelocity=0;p.y=THREE.MathUtils.damp(p.y,-.5+Math.sin(this.elapsed*3)*.025,7,dt);}else if(this.grounded)p.y=THREE.MathUtils.damp(p.y,terrainY,10,dt);else{this.verticalVelocity-=9.81*dt;p.y+=this.verticalVelocity*dt;if(p.y<=terrainY){p.y=terrainY;this.verticalVelocity=0;this.grounded=true;this.event('land')}}
  const driftEvent=this.driftwood.update(dt,p,this.elapsed);
- if(driftEvent==='collected'){this.wood+=DRIFTWOOD_WOOD;this.event('driftwoodPickup');}
+ if(driftEvent==='collected'){this.wood+=DRIFTWOOD_WOOD;this.leaves+=DRIFTWOOD_LEAVES;this.event('driftwoodPickup');}
  else if(driftEvent==='returned')this.event('driftwoodReturn');
  this.player.body.position.y=this.swimming?Math.sin(this.elapsed*3)*.035:Math.abs(Math.sin(this.walk))*.035;this.player.body.rotation.x=this.swimming?.42:0;this.player.legs.forEach((l,i)=>l.rotation.x=this.swimming?.55+Math.sin(this.walk+i*Math.PI)*.38:Math.sin(this.walk+i*Math.PI)*.5);this.player.arms[0].rotation.x=this.swimming?-1.1+Math.sin(this.walk)*.7:Math.sin(this.walk)*.25;this.player.arms[1].rotation.x=this.swing?-Math.sin((.5-this.swing)/.5*Math.PI)*2.7:this.swimming?-1.1-Math.sin(this.walk)*.7:-Math.sin(this.walk)*.25;
 for(const t of this.trees){t.shake=Math.max(0,t.shake-dt);if(t.state==='standing'){t.trunk.rotation.z=t.shake?Math.sin(t.shake*70)*.027:0;t.crown.rotation.z=Math.sin(this.elapsed*1.5+t.phase)*.035;t.crown.rotation.x=Math.cos(this.elapsed+t.phase)*.02}else if(t.state==='falling'){t.velocity+=3*9.81/(2*t.h)*Math.sin(Math.max(.05,t.angle))*dt;t.angle+=t.velocity*dt;t.trunk.quaternion.setFromAxisAngle(t.axis,Math.min(Math.PI/2,t.angle));if(t.angle>=Math.PI/2)this.spawnLogs(t)}}

@@ -1,7 +1,8 @@
 # Průvodce prvním tavicím postupem · 26. 9. 2026
 
-Pracovní větev `feature/pruvodce-taveni` navazuje na hratelný výrobní řetězec.
-Kompaktní panel pod horní lištou ukazuje jeden další krok a aktuální zásoby.
+Průvodce v pracovní větvi `game-sprint/2026-09-25-mobilni-dilna` navazuje na
+hratelný výrobní řetězec. Kompaktní panel pod horní lištou ukazuje jeden
+další krok a aktuální zásoby.
 Klepnutí na něj rozbalí podrobnější vysvětlení. Na dotykovém zařízení uvádí
 držení sekery, na desktopu klávesu F; při stavění, otevření batohu a ve výrobě
 nepřekrývá ovládání. Po dokončení řezáku ukáže výsledek.
@@ -9,15 +10,17 @@ nepřekrývá ovládání. Po dokončení řezáku ukáže výsledek.
 Stav se vždy odvozuje ze zásob, staveb, pozice u stanice, běžících výrob a
 nepyramidových jam. Zohledňuje již postavenou pec, utracené suroviny a obnovenou
 rozdělanou tavbu. Třetí vrstva nevydá další rudu, proto ji průvodce pro nový
-zisk rudy nepovažuje za rozpracovanou. Nezapisuje se žádný nový údaj do pozice;
-schéma v2 zůstává stejné. Ceny staveb a vstupy výroby se čtou z herních definic.
-Po vykácení všech palem navede hráče k obnovitelnému dřevu na východním břehu
+zisk rudy nepovažuje za rozpracovanou. Průvodce nezapisuje žádný nový údaj do
+pozice; po kontrole rozložení ostrova je aktuální schéma v3. Ceny staveb a
+vstupy výroby se čtou z herních definic.
+Po vykácení všech palem navede hráče k obnovitelnému dřevu a listí na východním břehu
 a při odpočtu ukáže zbývající sekundy.
 
 ## Ověření
 
-- `npm test`: 26/26 po začlenění do společné větve, včetně větví postupu,
-  naplaveniny, vyčerpané jámy, obnovené výroby a
+- `npm test`: 31/31 na pracovním stavu se schématem v3. Sada zahrnuje větve
+  postupu, obě suroviny z naplaveniny,
+  ochranu rozložení ostrova, vyčerpané jámy, obnovené výroby a
   existujících testů uložení, craftingu i simulace.
 - `node --check` pro změněné moduly a `git diff --check` prošly.
 - Headless Chromium se softwarovým WebGL: nový začátek na telefonu 390 × 844 a

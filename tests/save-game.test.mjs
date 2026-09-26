@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.js';
 import {makeScenery} from '../dist/world.js';
 import {RAPIER, IslandGame, COSTS} from '../dist/simulation.js';
-import {DRIFTWOOD_POSITION, DRIFTWOOD_RESPAWN_SECONDS, DRIFTWOOD_WOOD} from '../dist/driftwood.js';
+import {DRIFTWOOD_POSITION, DRIFTWOOD_RESPAWN_SECONDS, DRIFTWOOD_WOOD, DRIFTWOOD_LEAVES} from '../dist/driftwood.js';
 import {Survival} from '../dist/survival.js';
 import {createIslandLife} from '../dist/life.js';
 import {
@@ -163,18 +163,21 @@ test('shore driftwood is collected by approach, waits through save/reload, then 
   before.game.player.root.position.set(x, .22, z);
   before.game.update(.016);
   assert.equal(before.game.wood, DRIFTWOOD_WOOD);
+  assert.equal(before.game.leaves, DRIFTWOOD_LEAVES);
   assert.deepEqual(before.game.driftwood.snapshot(), {available: false, remaining: DRIFTWOOD_RESPAWN_SECONDS});
   assert.equal(before.game.driftwood.visual.visible, false);
   before.game.update(0); // pausing does not spend the wait or grant another log
   assert.equal(before.game.driftwood.remaining, DRIFTWOOD_RESPAWN_SECONDS);
   before.game.update(.016);
   assert.equal(before.game.wood, DRIFTWOOD_WOOD);
+  assert.equal(before.game.leaves, DRIFTWOOD_LEAVES);
   assert.equal(events.filter(type => type === 'driftwoodPickup').length, 1);
 
   const saved = captureGameState(before);
   const after = freshIsland();
   applyGameState(after, exportSave(saved));
   assert.equal(after.game.wood, DRIFTWOOD_WOOD);
+  assert.equal(after.game.leaves, DRIFTWOOD_LEAVES);
   assert.equal(after.game.driftwood.visual.visible, false);
   after.game.player.root.position.set(0, .22, 0);
   after.game.update(DRIFTWOOD_RESPAWN_SECONDS - .1);
@@ -185,6 +188,7 @@ test('shore driftwood is collected by approach, waits through save/reload, then 
   after.game.player.root.position.set(x, .22, z);
   after.game.update(.016);
   assert.equal(after.game.wood, DRIFTWOOD_WOOD * 2);
+  assert.equal(after.game.leaves, DRIFTWOOD_LEAVES * 2);
   assert.equal(after.game.driftwood.available, false);
 });
 
@@ -200,6 +204,14 @@ test('v1 and older v2 positions start with a pickup; malformed cooldown is rejec
     applyGameState(island, input);
     assert.equal(island.game.driftwood.visual.visible, true);
   }
+  const oldCooldown = {...old, world: {...old.world, driftwood: {available: false, remaining: 20}}};
+  const resumed = freshIsland();
+  applyGameState(resumed, oldCooldown); // a prior wood-only pickup grants no retroactive leaves
+  assert.equal(resumed.game.leaves, 0);
+  assert.equal(resumed.game.driftwood.remaining, 20);
+  resumed.game.player.root.position.set(DRIFTWOOD_POSITION.x, .22, DRIFTWOOD_POSITION.z);
+  resumed.game.update(20);
+  assert.equal(resumed.game.leaves, DRIFTWOOD_LEAVES);
   assert.throws(() => validateSave({...old, world: {...old.world, driftwood: {available: false, remaining: 91}}}), SaveGameError);
   assert.throws(() => validateSave({...old, world: {...old.world, driftwood: {available: true, remaining: 1}}}), SaveGameError);
 });

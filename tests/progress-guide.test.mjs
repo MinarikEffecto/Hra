@@ -106,4 +106,5 @@ test('the guide directs a wood-starved island to renewable shore driftwood', () 
   game.driftwood.snapshot = () => ({available: false, remaining: 38.4});
   assert.match(goal().action, /39 s hraní/);
   assert.match(goal().help, /2 dřeva/);
+  assert.match(goal().help, /2 palmové listy/);
 });

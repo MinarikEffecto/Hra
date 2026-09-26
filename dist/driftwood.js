@@ -1,7 +1,8 @@
 import * as THREE from './vendor/three.module.js';
-import {GROUND, logMesh} from './world.js';
+import {GROUND, logMesh, frond} from './world.js';
 
 export const DRIFTWOOD_WOOD = 2;
+export const DRIFTWOOD_LEAVES = 2;
 export const DRIFTWOOD_RESPAWN_SECONDS = 90;
 export const DRIFTWOOD_POSITION = Object.freeze({x: 6.2, z: 5.4});
 
@@ -19,6 +20,12 @@ export class Driftwood {
     log.rotation.z = Math.PI / 2;
     log.rotation.y = -.3;
     this.visual.add(log);
+    for (const side of [-1, 1]) {
+      const leaf = frond(this.visual, 1.2, .34, side < 0 ? 0x6bb548 : 0x8bc85b);
+      leaf.position.set(-.46, .14, side * .25);
+      leaf.rotation.y = side * .55;
+      leaf.rotation.z = -.08;
+    }
     const marker = new THREE.Mesh(new THREE.RingGeometry(.64, .72, 32),
       new THREE.MeshBasicMaterial({color: 0xffe8a2, transparent: true, opacity: .85, side: THREE.DoubleSide}));
     marker.rotation.x = -Math.PI / 2;
