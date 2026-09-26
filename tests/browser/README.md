@@ -40,3 +40,24 @@ dočasném adresáři. Konzolový výstup lze přesměrovat do souboru. Test čt
 vlastní uloženou pozici pro ověření, nikdy profil skutečného hráče. Omezení
 prostředí při načtení Google Fonts zapisuje, ale nepovažuje je za selhání
 herní logiky. Neodchycená chyba JavaScriptu test ukončí neúspěšně.
+
+## Sázení a další sklizeň
+
+```sh
+npm run planting --prefix tests/browser
+```
+
+Skutečný 3D ostrov v rozměrech 1280×800, 390×844 a 568×320. Kontrola začíná
+z anonymní připravené pozice v3: jeden pařez, dva kokosy, hráč poblíž a ponk
+pro okolní ovládání. Myší nebo dotykem zasadí kokos, zkontroluje jediný
+odečet a uloží/načte růst. Poté použije kopii pozice s jednou sekundou do
+dorostení a zkontroluje tři nové kokosy. Skutečným držením nástroje palmu
+znovu pokácí a po reloadu ověří 5 dřev, 6 listů a 4 kokosy v batohu.
+Nevydává tento zkrácený test za tříminutové čekání ani za cestu od nové hry.
+Celý odpočet a pauzy samostatně ověřují testy pravidel.
+
+Volitelný argument `node tests/browser/planting.mjs portrait` spustí jeden
+rozměr. Snímky používají `HRA_QA_OUTPUT` nebo dočasný adresář. Externí
+Google Fonts jsou pro tento scénář úmyslně blokované; vzhled písma a emoji
+na fyzickém zařízení není tímto ověřen. Chyby herního JS a místních souborů
+způsobí neúspěch testu.
