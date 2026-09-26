@@ -129,7 +129,7 @@ export function createExploration(scene,game,{sound,noise}){
   game.requestSave?.();
  }
 
- return {dig,select,refreshTools,get tool(){return tool},inventory,holes,floods,pyramid,restoreFloods(savedHoles=[]){savedHoles.forEach((saved,i)=>{if(saved.flood&&holes[i])startFlood(holes[i],saved.flood.sourceX,saved.flood.sourceZ,saved.flood.height);});for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
+ return {dig,select,refreshTools,get tool(){return tool},get canDigHere(){return digTarget().valid},inventory,holes,floods,pyramid,restoreFloods(savedHoles=[]){savedHoles.forEach((saved,i)=>{if(saved.flood&&holes[i])startFlood(holes[i],saved.flood.sourceX,saved.flood.sourceZ,saved.flood.height);});for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
   const marker=digTarget();digMarker.visible=tool==='shovel'&&!game.craftingOpen;if(digMarker.visible){digMarker.position.set(marker.x,terrain.heightAt(marker.x,marker.z)+.028,marker.z);digMarkerMaterial.color.set(marker.valid?0xffefad:0xf06f61);digMarker.scale.setScalar(.96+Math.sin(game.elapsed*5)*.04);}
   if(pending){pending.at-=dt;if(pending.at<=0){uncover(pending);pending=null;}}digTime=Math.max(0,digTime-dt);gunTime=Math.max(0,gunTime-dt);muzzle.visible=gunTime>.2;const moving=game.walk!==0;walkBlend=THREE.MathUtils.damp(walkBlend,moving?1:0,9,dt);const t=game.elapsed;
   player.body.rotation.z=Math.sin(game.walk)*.045*walkBlend;player.body.rotation.y=Math.sin(game.walk)*.05*walkBlend;player.body.position.y=Math.abs(Math.sin(game.walk))*.045*walkBlend+Math.sin(t*2.1)*.009;player.body.scale.y=1+Math.sin(t*2.1)*.008;player.body.rotation.x=game.swimming?.42:digTime?Math.sin((.82-digTime)/.82*Math.PI)*.42:game.swing?Math.sin((.5-game.swing)/.5*Math.PI)*.09:walkBlend*.045;
