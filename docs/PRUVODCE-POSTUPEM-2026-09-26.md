@@ -11,10 +11,13 @@ nepyramidových jam. Zohledňuje již postavenou pec, utracené suroviny a obnov
 rozdělanou tavbu. Třetí vrstva nevydá další rudu, proto ji průvodce pro nový
 zisk rudy nepovažuje za rozpracovanou. Nezapisuje se žádný nový údaj do pozice;
 schéma v2 zůstává stejné. Ceny staveb a vstupy výroby se čtou z herních definic.
+Po vykácení všech palem navede hráče k obnovitelnému dřevu na východním břehu
+a při odpočtu ukáže zbývající sekundy.
 
 ## Ověření
 
-- `npm test`: 22/22, včetně větví postupu, vyčerpané jámy, obnovené výroby a
+- `npm test`: 26/26 po začlenění do společné větve, včetně větví postupu,
+  naplaveniny, vyčerpané jámy, obnovené výroby a
   existujících testů uložení, craftingu i simulace.
 - `node --check` pro změněné moduly a `git diff --check` prošly.
 - Headless Chromium se softwarovým WebGL: nový začátek na telefonu 390 × 844 a
@@ -33,4 +36,6 @@ prohlížečový scénář s hotovým ingotem. Na skutečném telefonu zbývá z
 vzhled, dotyk a čitelnost. Izolovaný testovací prohlížeč zobrazoval část emoji
 jako náhradní znaky.
 
-Tato větev nebyla začleněna do `main`, odeslána na GitHub ani publikována na Sites.
+Změna byla začleněna do pracovní větve
+`game-sprint/2026-09-25-mobilni-dilna` a draft PR #1. `main` ani veřejná
+verze Sites se nezměnily.

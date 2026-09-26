@@ -97,3 +97,13 @@ test('restored or spent branches choose a usable instruction without claiming st
   game.trees[0].state = 'gone';
   assert.match(goal().action, /není k dispozici/);
 });
+
+test('the guide directs a wood-starved island to renewable shore driftwood', () => {
+  const {game, goal} = startingState();
+  game.trees[0].state = 'gone';
+  game.driftwood = {snapshot: () => ({available: true, remaining: 0})};
+  assert.match(goal().action, /východním břehu/);
+  game.driftwood.snapshot = () => ({available: false, remaining: 38.4});
+  assert.match(goal().action, /39 s hraní/);
+  assert.match(goal().help, /2 dřeva/);
+});

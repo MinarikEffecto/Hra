@@ -16,14 +16,18 @@ function woodGoal(game, amount, purpose, touch) {
   const trees = game.trees?.some(t => t.kind !== 'bush' && t.state === 'standing');
   const falling = game.trees?.some(t => t.state === 'falling');
   const logs = game.logs?.length > 0;
+  const driftwood = game.driftwood?.snapshot();
   const action = logs ? 'Posbírej ležící polena na ostrově.' :
     falling ? 'Počkej na dopad palmy a seber polena.' :
     trees ? `Pokácej palmu (${touch ? 'podrž sekeru' : 'F'}) a seber dřevo.` :
+    driftwood?.available ? 'Seber naplavené dřevo na východním břehu.' :
+    driftwood ? `Počkej na další dřevo u východního břehu (${Math.ceil(driftwood.remaining)} s hraní).` :
     'Další dřevo teď na ostrově není k dispozici.';
   return {key: `wood-${purpose}`, action, stock: `Dřevo ${game.wood}/${amount} · ${purpose}`,
     help: logs ? 'Přibliž se k ležícím polenům.' :
       falling ? 'Padající palma nejprve musí dopadnout. Pak se k polenům přibliž.' :
       trees ? 'Přijdi k palmě se sekerou. Polena seber přiblížením.' :
+      driftwood ? 'Na východní pláž pravidelně připlouvá poleno. Přibliž se k němu; dává 2 dřeva a vrací se po 90 sekundách hraní.' :
       'S dostupnými zásobami tento postup zatím nejde dokončit.'};
 }
 
