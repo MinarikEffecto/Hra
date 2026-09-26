@@ -2,7 +2,8 @@
 
 Větev `feature/2026-09-26-buried-cache` navazuje na
 `fix/2026-09-26-tool-feedback` (`352ffef`). Zachovává nové ovladače i
-kompaktní ikonové rozhraní. Jde o první hratelnou část skryté lokace.
+kompaktní ikonové rozhraní. Jde o první hratelnou část skryté lokace,
+připravenou v [draft PR #5](https://github.com/MinarikEffecto/Hra/pull/5).
 
 ## Co hráč objeví
 
@@ -59,3 +60,26 @@ výkon fyzického telefonu. Externí Google Fonts jsou v testu blokované.
 Příkazy a přesný rozsah jsou v [návodu testů](../tests/browser/README.md).
 
 Verze je určena ke kontrole na GitHubu. Na Sites nebyla publikována.
+
+## Dopracování ovládání
+
+Po prvním ověření přibylo vysvětlení každé blokované podmínky. Stejná
+pravidla nyní řídí dostupnost akce i její vysvětlení, včetně plného
+inventáře a stání ve vodě. Prohlížení počká na dokončení pohybu nástroje
+a dopad hráče, takže dialog nemůže zmrazit rozehranou animaci.
+
+Tab a Shift+Tab zůstávají uvnitř nálezu. Po vyzvednutí se fokus přesune
+ze skrytého tlačítka na zavření. Popis pro čtečku se nepřepisuje při každé
+aktualizaci, pokud se skutečný obsah nezměnil.
+
+Model po úpravě opět prošel všemi **57 testy**. Prohlížečový scénář navíc
+kontroluje klávesnicový fokus, důvod chybějícího spojeného lana a stabilní
+živý popis. Na dokončení práce s lopatou čeká podle dostupnosti ovladače,
+aby rychlost softwarového vykreslování neovlivnila pořadí dalších kroků.
+
+Rozšířený scénář prošel znovu na desktopu i dotyku na neměnném lokálním
+kódu `0cc6739685379dfcfd12b134ab337fe8311a00d7`, strom
+`ff3023921eb7840bfbe9e2c1e2a730c5176a14a8`. V obou profilech po reloadu
+zůstaly 4 rudy (1 vykopaná + 3 z bedny), 2 jídla a dvě metrová lana
+s původní kvalitou 83 % a 90 %. Nebyly zaznamenané chyby hry. Snímky
+dialogu po úpravě textů byly znovu vizuálně zkontrolované.

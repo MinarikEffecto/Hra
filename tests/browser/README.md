@@ -101,6 +101,10 @@ kvality zbytku a trvalý řezák. Mobilní vyzvednutí probíhá po otočení na
 568×320. Reload musí zachovat vyzvednutý stav a nepřidat další odměnu.
 Není to nový průchod celou výrobou od holých rukou; ten má vlastní scénář.
 
+Kontroluje také Tab a Shift+Tab uvnitř dialogu, návrat fokusu po vyzvednutí,
+vysvětlení chybějícího lana a nepřepisování nezměněného popisu pro čtečku.
+Před další akcí počká na skutečné dokončení pohybu nástroje.
+
 Výstup a blokování externích fontů fungují stejně jako výše. Neodchycené
 chyby hry a chybějící místní soubory test odmítá. Rozsah funkce a migrace
 jsou popsány v [záznamu skrýše](../../docs/BUNKR-SKRYS-2026-09-26.md).

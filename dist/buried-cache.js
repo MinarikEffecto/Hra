@@ -27,12 +27,19 @@ export class BuriedCache {
     return Math.hypot(p.x - BUNKER_SITE.x, p.z - BUNKER_SITE.z) < 2;
   }
   get ropeIndex() { return this.game.inventory.ropes.findIndex(r => r.length >= 2); }
-  get canRecover() {
-    return !this.claimed && this.revealed && this.near && this.game.grounded && !this.game.swimming &&
-      !this.game.swing && !this.game.pendingHit && !this.game.cooldown &&
-      this.game.inventory.copperCutter && this.ropeIndex >= 0 &&
-      Object.entries(BUNKER_REWARD).every(([key, n]) => (this.game.inventory[key] ?? 0) + n <= 1e6);
+  get recoveryReason() {
+    if (this.claimed) return 'Zásoby už jsou vyzvednuté.';
+    if (!this.revealed) return 'Nejprve odkryj poklop.';
+    if (!this.near) return 'Vrať se k poklopu.';
+    if (!this.game.grounded || this.game.swimming) return 'Postav se na suché místo u poklopu.';
+    if (this.game.swing || this.game.pendingHit || this.game.cooldown) return 'Nejprve dokonči pohyb nástroje.';
+    if (!this.game.inventory.copperCutter) return 'U ponku vyrob měděný řezák.';
+    if (this.ropeIndex < 0) return 'V dílně spoj lano do jednoho kusu dlouhého alespoň 2 m.';
+    if (Object.entries(BUNKER_REWARD).some(([key, n]) => (this.game.inventory[key] ?? 0) + n > 1e6))
+      return 'Nejprve spotřebuj část rudy nebo jídla; zásoby se už nevejdou.';
+    return '';
   }
+  get canRecover() { return !this.recoveryReason; }
   recover() {
     if (!this.canRecover) return false;
     const index = this.ropeIndex, rope = this.game.inventory.ropes[index];

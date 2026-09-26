@@ -57,6 +57,7 @@ test('spent two-metre rope is removed and exceeding inventory bounds cannot cons
   const {game, exploration} = context(), cache = game.buriedCache; exploration.holes.push(hole());
   game.inventory.ropes[0].length = 2; game.inventory.ore = 1e6;
   assert.equal(cache.recover(), false); assert.equal(game.inventory.ropes[0].length, 2);
+  assert.match(cache.recoveryReason, /nevejdou/);
   game.inventory.ore = 0; assert.equal(cache.recover(), true); assert.deepEqual(game.inventory.ropes, []);
 });
 

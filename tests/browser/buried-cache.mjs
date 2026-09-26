@@ -57,9 +57,12 @@ try {
     await click('#bagBtn'); await click('#bunkerOpen');
     assert.match(await page.locator('#bunkerStory').innerText(), /čtvrté vrstvy/);
     assert.equal(await page.locator('#bunkerRecover').isHidden(), true);
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'bunkerClose');
     await click('#bunkerClose');
     const cdp = await context.newCDPSession(page);
     for (let level = 1; level <= 4; level++) {
+      await page.waitForFunction(() => !document.getElementById('bunkerOpen').disabled);
       if (touch) {
         const b = await page.locator('.chop').boundingBox();
         await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: b.x + b.width / 2, y: b.y + b.height / 2, id: 1}]});
@@ -67,6 +70,7 @@ try {
         await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
       } else { await page.keyboard.down('f'); await page.waitForTimeout(470); await page.keyboard.up('f'); }
       await page.waitForTimeout(1400);
+      await page.waitForFunction(() => !document.getElementById('bunkerOpen').disabled);
       const s = await snapshot(); assert.equal(s.world.holes[0]?.level, level);
     }
     const dug = await snapshot(); assert.equal(dug.schemaVersion, SAVE_SCHEMA_VERSION); assert.equal(dug.bunker.claimed, false);
@@ -74,6 +78,7 @@ try {
     await click('#bagBtn'); await click('#bunkerOpen');
     assert.match(await page.locator('#bunkerTitle').innerText(), /K–03/);
     assert.equal(await page.locator('#bunkerRecover').isEnabled(), false, 'two separate ropes cannot lift the crate');
+    assert.match(await page.locator('#bunkerNeeds').innerText(), /spoj lano/);
     await click('#bunkerClose');
     // This fixture supplies a joined rope; the full workshop journey is a separate test.
     dug.inventory.ropes = [{length: 3, quality: 83}, {length: 1, quality: 90}];
@@ -82,9 +87,26 @@ try {
     await click('#bagBtn'); await click('#bunkerOpen');
     await page.locator('#bunkerRecover').scrollIntoViewIfNeeded();
     assert.equal(await page.locator('#bunkerRecover').isEnabled(), true);
+    assert.match(await page.locator('#bunkerNeeds').innerText(), /Vše je připravené/);
+    if (!touch) {
+      await page.keyboard.press('Shift+Tab');
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'bunkerRecover');
+      await page.keyboard.press('Tab');
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'bunkerClose');
+      await page.keyboard.press('Tab');
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'bunkerRecover');
+      const changes = await page.locator('#bunkerNeeds').evaluate(element => new Promise(resolve => {
+        let count = 0;
+        const observer = new MutationObserver(records => count += records.length);
+        observer.observe(element, {childList: true, subtree: true, characterData: true});
+        setTimeout(() => { observer.disconnect(); resolve(count); }, 800);
+      }));
+      assert.equal(changes, 0, 'unchanged live status must not be rewritten every refresh');
+    }
     await page.screenshot({path: resolve(output, `${label}-ready.png`)});
     await click('#bunkerRecover');
     assert.equal(await page.locator('#bunkerRecover').isHidden(), true);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'bunkerClose');
     await click('#bunkerClose');
     if (touch) await page.setViewportSize({width: 390, height: 844});
     const recovered = await snapshot();
