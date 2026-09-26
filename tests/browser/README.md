@@ -104,6 +104,8 @@ Není to nový průchod celou výrobou od holých rukou; ten má vlastní scén�
 Kontroluje také Tab a Shift+Tab uvnitř dialogu, návrat fokusu po vyzvednutí,
 vysvětlení chybějícího lana a nepřepisování nezměněného popisu pro čtečku.
 Před další akcí počká na skutečné dokončení pohybu nástroje.
+Po odkrytí vloží vzdálenou kopii pozice a ověří šipku, vzdálenost,
+slovní směr a nepřístupné vyzvednutí z dálky.
 
 Výstup a blokování externích fontů fungují stejně jako výše. Neodchycené
 chyby hry a chybějící místní soubory test odmítá. Rozsah funkce a migrace

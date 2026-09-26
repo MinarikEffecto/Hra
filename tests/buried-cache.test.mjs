@@ -4,7 +4,7 @@ import * as THREE from '../dist/vendor/three.module.js';
 import {makeScenery} from '../dist/world.js';
 import {IslandGame, RAPIER} from '../dist/simulation.js';
 import {Survival} from '../dist/survival.js';
-import {BuriedCache, BUNKER_SITE, bunkerExposed} from '../dist/buried-cache.js';
+import {BuriedCache, BUNKER_SITE, bunkerExposed, bunkerNavigation} from '../dist/buried-cache.js';
 import {captureGameState, applyGameState, validateSave, saveToStorage, SaveGameError} from '../dist/save-game.js';
 
 await RAPIER.init();
@@ -19,6 +19,17 @@ function context() {
   return {game, exploration, life};
 }
 const hole = (level = 4) => ({...BUNKER_SITE, level, pyramid: false, flood: null});
+
+test('return directions agree with the eight screen movement directions and real distance', () => {
+  const directions = [[1, -1, '→'], [1, 0, '↘'], [1, 1, '↓'], [0, 1, '↙'],
+    [-1, 1, '←'], [-1, 0, '↖'], [-1, -1, '↑'], [0, -1, '↗']];
+  for (const [dx, dz, arrow] of directions) {
+    const result = bunkerNavigation({x: BUNKER_SITE.x - dx * 4, z: BUNKER_SITE.z - dz * 4});
+    assert.equal(result.arrow, arrow);
+    assert.ok(Math.abs(result.distance - Math.hypot(dx * 4, dz * 4)) < 1e-9);
+  }
+  assert.equal(bunkerNavigation(BUNKER_SITE).distance, 0);
+});
 
 test('cache is discovered only at its site at depth four, or in an existing building foundation', () => {
   assert.equal(bunkerExposed([hole(3)]), false);

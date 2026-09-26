@@ -20,13 +20,15 @@ export function createBuriedCacheUI(game, {toast, sound, hud}) {
   document.body.append(panel);
   function refresh() {
     const revealed = cache.revealed;
+    const {distance, arrow, direction} = cache.navigation;
     root.position.set(BUNKER_SITE.x, game.terrain.heightAt(BUNKER_SITE.x, BUNKER_SITE.z) + .02, BUNKER_SITE.z);
     clue.visible = !revealed; hatch.visible = revealed;
     handle.material.color.set(cache.claimed ? 0x79b68a : 0xc0b598);
     open.hidden = !cache.near && !revealed;
     open.disabled = !!(game.swing || game.pendingHit || game.cooldown || !game.grounded);
     open.title = open.disabled ? 'Prohlédnutí nálezu bude dostupné po dokončení pohybu.' : '';
-    setText(open, cache.claimed ? 'K–03 · zásoby vyzvednuté' : revealed ? 'Prozkoumat odkrytý poklop K–03' : 'Prohlédnout rezavý plech');
+    setText(open, revealed && !cache.near ? `${arrow} Poklop K–03 · ${Math.ceil(distance)} m` :
+      cache.claimed ? 'K–03 · zásoby vyzvednuté' : revealed ? 'Prozkoumat odkrytý poklop K–03' : 'Prohlédnout rezavý plech');
     setText($('bunkerTitle'), revealed ? 'Zásobovací šachta K–03' : 'Záhada v písku');
     $('bunkerDrawing').classList.toggle('cacheClaimed', cache.claimed);
     setText($('bunkerStory'), !revealed ? 'Z písku vykukuje roh rezavého plechu. Pod ním může být něco většího. Postav se poblíž, zamiř lopatou na plech a kopej do čtvrté vrstvy.' :
@@ -34,7 +36,7 @@ export function createBuriedCacheUI(game, {toast, sound, hud}) {
       'Pod pískem je starý vojenský poklop. Za poškozeným zámkem leží bedna s měděnou rudou a zásobami jídla. Řezák uvolní zámek; spojeným lanem vytáhneš bednu.');
     setText($('bunkerNeeds'), cache.claimed ? 'Získáno jednou: 3 měděné rudy + 2 porce jídla. Dva metry lana zůstaly upevněné v šachtě.' :
       !revealed ? 'Vezmi lopatu. Nález zůstane odkrytý i po načtení hry.' :
-      `${cache.recoveryReason || 'Vše je připravené.'} Řezák ${game.inventory.copperCutter ? 'hotový' : 'chybí'} · Jeden kus lana alespoň 2 m ${cache.ropeIndex >= 0 ? 'připravený' : 'chybí'}. Spotřeba: 2 m lana; řezák zůstane.`);
+      `${cache.near ? cache.recoveryReason || 'Vše je připravené.' : `${arrow} K poklopu: ${Math.ceil(distance)} m směrem ${direction} na obrazovce.`} Řezák ${game.inventory.copperCutter ? 'hotový' : 'chybí'} · Jeden kus lana alespoň 2 m ${cache.ropeIndex >= 0 ? 'připravený' : 'chybí'}. Spotřeba: 2 m lana; řezák zůstane.`);
     $('bunkerRecover').hidden = !revealed || cache.claimed;
     $('bunkerRecover').disabled = !cache.canRecover;
   }

@@ -83,3 +83,18 @@ kódu `0cc6739685379dfcfd12b134ab337fe8311a00d7`, strom
 zůstaly 4 rudy (1 vykopaná + 3 z bedny), 2 jídla a dvě metrová lana
 s původní kvalitou 83 % a 90 %. Nebyly zaznamenané chyby hry. Snímky
 dialogu po úpravě textů byly znovu vizuálně zkontrolované.
+
+## Návrat k objevenému místu
+
+Po odchodu od odkrytého poklopu ukáže tlačítko v batohu šipku a vzdálenost.
+Dialog doplní směr na obrazovce, například „nahoru“. Orientace odpovídá
+pevným ovládacím osám WASD a dotykového joysticku. Před objevením se
+vzdálená lokace neprozrazuje a kompaktní HUD nedostává další trvalý prvek.
+Navigace se vypočítá z aktuální pozice; formát uložené hry zůstává v6.
+
+Pravidla včetně všech osmi směrů a vzdálenosti prošla **58/58 testy**.
+Rozšířený prohlížečový scénář opět prošel na desktopu i dotyku na kódu
+`8234d8c1c8f7ea8cf31eee7d01a2855544d073ca` (strom
+`23184ad6bb786f15f908c65badacb096b85a07a3`). Navíc kontroluje návrat
+ke vzdálenému nálezu: směr nahoru, vzdálenost 11 m a blokované vyzvednutí
+z dálky. Oba profily skončily bez chyb a se stejnými uloženými zásobami.

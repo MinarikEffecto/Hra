@@ -2,6 +2,19 @@ export const BUNKER_SITE = Object.freeze({x: -.7, z: -1.7});
 export const BUNKER_DEPTH = 4;
 export const BUNKER_REWARD = Object.freeze({ore: 3, cooked: 2});
 
+// The island camera and movement axes are fixed at 45 degrees. These directions
+// describe the screen, so the same arrow works for WASD and the touch joystick.
+export function bunkerNavigation(player) {
+  const dx = BUNKER_SITE.x - player.x, dz = BUNKER_SITE.z - player.z;
+  const distance = Math.hypot(dx, dz);
+  const index = (Math.round(Math.atan2(dx + dz, dx - dz) / (Math.PI / 4)) + 8) % 8;
+  const [arrow, direction] = [
+    ['→', 'doprava'], ['↘', 'doprava dolů'], ['↓', 'dolů'], ['↙', 'doleva dolů'],
+    ['←', 'doleva'], ['↖', 'doleva nahoru'], ['↑', 'nahoru'], ['↗', 'doprava nahoru'],
+  ][index];
+  return {distance, arrow, direction};
+}
+
 export function bunkerHole(holes) {
   return holes.find(h => !h.pyramid && h.level >= BUNKER_DEPTH &&
     Math.hypot(h.x - BUNKER_SITE.x, h.z - BUNKER_SITE.z) <= .8);
@@ -22,10 +35,8 @@ export function validateBunker(raw, holes, buildings = []) {
 export class BuriedCache {
   constructor(game, exploration) { this.game = game; this.exploration = exploration; this.claimed = false; }
   get revealed() { return bunkerExposed(this.exploration.holes, this.game.buildings); }
-  get near() {
-    const p = this.game.player.root.position;
-    return Math.hypot(p.x - BUNKER_SITE.x, p.z - BUNKER_SITE.z) < 2;
-  }
+  get navigation() { return bunkerNavigation(this.game.player.root.position); }
+  get near() { return this.navigation.distance < 2; }
   get ropeIndex() { return this.game.inventory.ropes.findIndex(r => r.length >= 2); }
   get recoveryReason() {
     if (this.claimed) return 'Zásoby už jsou vyzvednuté.';

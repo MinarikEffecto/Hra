@@ -80,6 +80,15 @@ try {
     assert.equal(await page.locator('#bunkerRecover').isEnabled(), false, 'two separate ropes cannot lift the crate');
     assert.match(await page.locator('#bunkerNeeds').innerText(), /spoj lano/);
     await click('#bunkerClose');
+    const distant = structuredClone(dug);
+    distant.player = {x: 6, z: 6, y: .22, heading: 0};
+    await seed(distant);
+    await click('#bagBtn');
+    assert.match(await page.locator('#bunkerOpen').innerText(), /↑ Poklop K–03 · 11 m/);
+    await click('#bunkerOpen');
+    assert.match(await page.locator('#bunkerNeeds').innerText(), /11 m směrem nahoru na obrazovce/);
+    assert.equal(await page.locator('#bunkerRecover').isEnabled(), false);
+    await click('#bunkerClose');
     // This fixture supplies a joined rope; the full workshop journey is a separate test.
     dug.inventory.ropes = [{length: 3, quality: 83}, {length: 1, quality: 90}];
     await seed(dug);
