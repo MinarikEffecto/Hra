@@ -9,7 +9,7 @@ export function createFiberCrafting(game,{sound,onInventoryChange,closeBag,canCr
  const point=e=>{const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*width/r.width,y:(e.clientY-r.top)*height/r.height};};
  const roundRect=(x,y,w,h,r)=>{ctx.beginPath();if(ctx.roundRect){ctx.roundRect(x,y,w,h,r);return;}const q=Math.min(r,w/2,h/2);ctx.moveTo(x+q,y);ctx.lineTo(x+w-q,y);ctx.quadraticCurveTo(x+w,y,x+w,y+q);ctx.lineTo(x+w,y+h-q);ctx.quadraticCurveTo(x+w,y+h,x+w-q,y+h);ctx.lineTo(x+q,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-q);ctx.lineTo(x,y+q);ctx.quadraticCurveTo(x,y,x+q,y);ctx.closePath();};
  const strokePath=(points,color,lineWidth,dash=[])=>{if(points.length<2)return;ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=lineWidth;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();ctx.setLineDash([]);};
- function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);width=Math.max(320,Math.round(r.width));height=Math.max(300,Math.round(r.height));canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw();}
+ function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),oldWidth=width,oldHeight=height; width=Math.max(1,Math.round(r.width));height=Math.max(1,Math.round(r.height));if(oldWidth!==width||oldHeight!==height){for(const path of paths)for(const p of path.points){p.x*=width/oldWidth;p.y*=height/oldHeight;}activePath=null;pointerId=null;if(stage==='cut'&&paths.length<2)status.textContent=`Řezy ${paths.length} / 2 · po otočení pokračuj novým tahem`;}canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw();}
  function backdrop(){const g=ctx.createLinearGradient(0,0,width,height);g.addColorStop(0,'#f3e4be');g.addColorStop(1,'#d8b878');ctx.fillStyle=g;ctx.fillRect(0,0,width,height);ctx.globalAlpha=.16;for(let i=0;i<18;i++){ctx.strokeStyle=i%2?'#76532d':'#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,i*31+Math.sin(i)*14);ctx.bezierCurveTo(width*.3,i*31-8,width*.65,i*31+20,width,i*31);ctx.stroke();}ctx.globalAlpha=1;}
  function drawMaterial(){
   const x0=width*.1,x1=width*.9,cy=height*.5,span=x1-x0;
@@ -62,15 +62,22 @@ export function createFiberCrafting(game,{sound,onInventoryChange,closeBag,canCr
  }
  function close(){overlay.hidden=true;game.craftingOpen=false;document.body.classList.remove('crafting-open');pointerId=null;onInventoryChange?.();}
  function cutScore(points){
-  if(points.length<5)return 0;const xMin=Math.min(...points.map(p=>p.x)),xMax=Math.max(...points.map(p=>p.x)),coverage=(xMax-xMin)/(width*.8);if(coverage<.65)return 0;
-  const first=points[0],last=points.at(-1),dx=last.x-first.x||1,errors=points.map(p=>Math.abs(p.y-(first.y+(p.x-first.x)/dx*(last.y-first.y)))),deviation=errors.reduce((a,b)=>a+b,0)/errors.length,slope=Math.abs(last.y-first.y)/(width*.8);return Math.max(0,Math.min(1,coverage*.5+(1-Math.min(1,deviation/(height*.055)))*.4+(1-Math.min(1,slope))*0.1));
+  if(points.length<2)return 0;const x0=width*.1,x1=width*.9,first=points[0],last=points.at(-1),leftToRight=first.x<last.x;
+  if(Math.abs(first.x-(leftToRight?x0:x1))>width*.16||Math.abs(last.x-(leftToRight?x1:x0))>width*.16)return 0;
+  const xMin=Math.min(...points.map(p=>p.x)),xMax=Math.max(...points.map(p=>p.x)),coverage=(xMax-xMin)/(x1-x0);if(coverage<.72)return 0;
+  const side=(points.reduce((sum,p)=>sum+p.y,0)/points.length)<height*.5?-.07:.07,guide=height*(.5+side);
+  const guideError=points.reduce((sum,p)=>sum+Math.abs(p.y-guide),0)/points.length;
+  if(guideError>height*.15)return 0;
+  const dx=last.x-first.x||1,straightError=points.reduce((sum,p)=>sum+Math.abs(p.y-(first.y+(p.x-first.x)/dx*(last.y-first.y))),0)/points.length;
+  const reverse=points.slice(1).filter((p,i)=>(p.x-points[i].x)*(leftToRight?1:-1)<-width*.025).length;
+  return Math.max(0,Math.min(1,coverage*.42+(1-Math.min(1,guideError/(height*.12)))*.32+(1-Math.min(1,straightError/(height*.09)))*.26-reverse*.06));
  }
  function finishCut(){
-  if(paths.length!==2)return;const quality=Math.round(paths.reduce((n,p)=>n+p.score,0)/2*100);if(source==='vine')inventory.vine--;else game.leaves--;for(let i=0;i<3;i++)inventory.strips.push(Math.max(25,quality-i*2+Math.round(Math.random()*4)));
-  sound?.('rustle');status.textContent=`3 prameny hotové, kvalita ${quality} %`;instruction.textContent='Prameny jsou oddělené. Můžeš je rovnou splést do jednoho lana.';reset.hidden=true;next.hidden=false;next.textContent='Splést prameny';next.onclick=()=>setStage('braid');onInventoryChange?.();
+  if(paths.length!==2)return;const quality=Math.round(paths.reduce((n,p)=>n+p.score,0)/2*100),count=inventory.copperCutter?4:3;if(source==='vine')inventory.vine--;else game.leaves--;for(let i=0;i<count;i++)inventory.strips.push(Math.min(100,Math.max(25,quality-i*2+(inventory.copperCutter?5:0)+Math.round(Math.random()*4))));
+  sound?.('rustle');status.textContent=`${count} prameny hotové, kvalita ${quality} %`;instruction.textContent='Prameny jsou oddělené. Můžeš je rovnou splést do jednoho lana.';reset.hidden=true;next.hidden=false;next.textContent='Splést prameny';next.onclick=()=>setStage('braid');onInventoryChange?.();
  }
  function finishBraid(){
-  const strandQuality=inventory.strips.splice(0,3),motion=braid.scores.reduce((a,b)=>a+b,0)/braid.scores.length,quality=Math.round((strandQuality.reduce((a,b)=>a+b,0)/3*.65+motion*100*.35));inventory.ropes.push({length:1,quality});sound?.('build');status.textContent=`Lano hotové, 1 m, kvalita ${quality} %`;instruction.textContent='Tři prameny jsou spletené. Pokud vyrobíš druhé lano, můžeš oba kusy napojit.';reset.hidden=true;next.hidden=false;next.textContent=inventory.ropes.length>=2?'Napojit dvě lana':'Zavřít dílnu';next.onclick=()=>inventory.ropes.length>=2?setStage('join'):close();onInventoryChange?.();draw();
+  const strandQuality=inventory.strips.splice(0,3),motion=braid.scores.reduce((a,b)=>a+b,0)/braid.scores.length,quality=Math.min(100,Math.round((strandQuality.reduce((a,b)=>a+b,0)/3*.65+motion*100*.35)));inventory.ropes.push({length:1,quality});sound?.('build');status.textContent=`Lano hotové, 1 m, kvalita ${quality} %`;instruction.textContent='Tři prameny jsou spletené. Pokud vyrobíš druhé lano, můžeš oba kusy napojit.';reset.hidden=true;next.hidden=false;next.textContent=inventory.ropes.length>=2?'Napojit dvě lana':'Zavřít dílnu';next.onclick=()=>inventory.ropes.length>=2?setStage('join'):close();onInventoryChange?.();draw();
  }
  function finishJoin(){
   const a=inventory.ropes.shift(),b=inventory.ropes.shift(),quality=Math.round(Math.min(a.quality,b.quality)*.96),length=a.length+b.length;inventory.ropes.push({length,quality});join.done=true;sound?.('build');status.textContent=`Napojené lano, ${length} m, kvalita ${quality} %`;instruction.textContent='Spoj je utažený. Dvě kratší lana jsou nyní jedním delším kusem.';reset.hidden=true;next.hidden=false;next.textContent=inventory.ropes.length>=2?'Napojit další lana':'Zavřít dílnu';next.onclick=()=>inventory.ropes.length>=2?setStage('join'):close();onInventoryChange?.();draw();
@@ -91,7 +98,14 @@ export function createFiberCrafting(game,{sound,onInventoryChange,closeBag,canCr
   draw();
  }
  canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',e=>{if(e.pointerId===pointerId){pointerId=null;activePath=null;if(braid)braid.dragging=null;if(join)join.dragging=null;draw();}});
- let lastChoiceTouch=0;function chooseMaterial(e){const button=e.target.closest?.('[data-fiber-action]');if(!button||button.disabled)return;e.preventDefault();lastChoiceTouch=performance.now();const action=button.dataset.fiberAction;source=action==='vine'?'vine':'leaf';setStage(action==='braid'?'braid':action==='join'?'join':'cut');}
- choices.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')chooseMaterial(e);});choices.addEventListener('click',e=>{if(performance.now()-lastChoiceTouch>500)chooseMaterial(e);});reset.onclick=()=>setStage(stage);$('fiberClose').onclick=close;addEventListener('resize',()=>{if(!overlay.hidden&&stage!=='select')resize();});addEventListener('keydown',e=>{if(!overlay.hidden&&e.key==='Escape'){e.preventDefault();close();}});
- return {open,close,get open(){return !overlay.hidden;}};
+ let lastChoiceTouch=-Infinity;function chooseMaterial(e){const button=e.target.closest?.('[data-fiber-action]');if(!button||button.disabled)return;e.preventDefault();const action=button.dataset.fiberAction;source=action==='vine'?'vine':'leaf';setStage(action==='braid'?'braid':action==='join'?'join':'cut');}
+ choices.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse'){lastChoiceTouch=performance.now();chooseMaterial(e);}});choices.addEventListener('click',e=>{if(performance.now()-lastChoiceTouch>500)chooseMaterial(e);});reset.onclick=()=>setStage(stage);$('fiberClose').onclick=close;addEventListener('resize',()=>{if(!overlay.hidden&&stage!=='select')resize();});addEventListener('keydown',e=>{if(!overlay.hidden&&e.key==='Escape'){e.preventDefault();close();}});
+ // Some touch browsers suppress the compatibility click following a captured
+ // canvas gesture. Run control actions on release and ignore only its duplicate.
+ for(const button of [next,reset,$('fiberClose')]){
+  let lastTouch=-Infinity;
+  button.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||button.disabled||button.hidden)return;e.preventDefault();lastTouch=performance.now();button.onclick?.(e);});
+  button.addEventListener('click',e=>{if(performance.now()-lastTouch<500){e.preventDefault();e.stopImmediatePropagation();}},true);
+ }
+ return {open,close,get isOpen(){return !overlay.hidden;}};
 }

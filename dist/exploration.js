@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {GROUND,inside,islandRadius,ball,rod,mesh,mat,box} from './world.js?v=21';
-import {createFiberCrafting} from './fiber-crafting.js?v=21';
+import {GROUND,inside,islandRadius,ball,rod,mesh,mat,box} from './world.js?v=23';
+import {createFiberCrafting} from './fiber-crafting.js?v=23';
+import {excavationYield} from './technology.js';
 
 const SEA_LEVEL=-.095;
 const PYRAMID_REVEAL_DEPTH=7;
@@ -17,7 +18,8 @@ export function createExploration(scene,game,{sound,noise}){
  const head=player.body.children.find(o=>o.isGroup&&o.position.y>1),eyes=[];if(head){eyes.push(...head.children.filter(o=>o.geometry?.type==='IcosahedronGeometry'&&o.position.z>.22&&Math.abs(o.position.x)>.07));for(const x of [-.095,.095])rod(head,[x-.028,.08,.231],[x+.028,.084,.231],.012,0x624231);const smile=mesh(new THREE.TorusGeometry(.045,.009,4,12,Math.PI),mat(0xa65f45),head,0,-.083,.245);smile.rotation.z=Math.PI;}
  const shovel=new THREE.Group();shovel.position.copy(player.axe.position);player.arms[1].add(shovel);rod(shovel,[0,-.2,0],[0,.55,.09],.029,0xb38a56);ball(shovel,0,-.3,0,.17,0x9dbbbc,[.8,1.3,.22]);rod(shovel,[-.07,.55,.09],[.07,.55,.09],.025,0x7f583b);shovel.visible=false;
  const shotgun=new THREE.Group();shotgun.position.set(0,-.18,.03);player.arms[1].add(shotgun);box(shotgun,0,.03,.28,.12,.13,.56,0x704728);box(shotgun,0,.04,.72,.085,.085,.48,0x59666a);box(shotgun,0,-.11,.06,.1,.28,.16,0x8c5a31);const muzzle=ball(shotgun,0,.04,.99,.12,0xffd45d);muzzle.material=muzzle.material.clone();muzzle.material.emissive=new THREE.Color(0xff8b2b);muzzle.material.emissiveIntensity=3;muzzle.visible=false;shotgun.visible=false;
- const digMarkerMaterial=new THREE.MeshBasicMaterial({color:0xffefad,transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false});
+ // The excavation target must remain legible when a tree or building blocks the spot.
+ const digMarkerMaterial=new THREE.MeshBasicMaterial({color:0xffefad,transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:false,depthWrite:false});
  const digMarker=mesh(new THREE.RingGeometry(.2,.27,40),digMarkerMaterial,scene);digMarker.rotation.x=-Math.PI/2;digMarker.renderOrder=5;digMarker.visible=false;
  player.root.traverse(o=>{if(o.geometry?.type==='IcosahedronGeometry'){const radius=o.geometry.parameters.radius;o.geometry.dispose();o.geometry=new THREE.IcosahedronGeometry(radius,2);o.material=o.material.clone();o.material.flatShading=false;o.material.roughness=.72;}});
 
@@ -45,14 +47,16 @@ export function createExploration(scene,game,{sound,noise}){
  function digTarget(){
   const p=player.root.position,a=player.root.rotation.y,x=p.x+Math.sin(a)*.92,z=p.z+Math.cos(a)*.92;
   const blocked=!inside(x,z,.75)||game.trees.some(t=>t.state!=='gone'&&Math.hypot(t.x-x,t.z-z)<.75)||game.buildings.some(b=>Math.hypot(b.x-x,b.z-z)<1.15);
-  return {x,z,a,valid:!blocked};
+  const pyramid=Math.hypot(x-PYRAMID.x,z-PYRAMID.z)<1.45;
+  const hole=pyramid?holes.find(h=>h.pyramid):nearestHole(x,z);
+  return {x:pyramid?PYRAMID.x:hole?.x??x,z:pyramid?PYRAMID.z:hole?.z??z,a,hole,pyramid,valid:!blocked&&game.grounded&&(!hole||hole.level<50)&&(hole||holes.length<100)};
  }
  function dig(){
   if(game.cooldown>0||digTime>0||!game.grounded)return false;
-  const p=player.root.position,{x,z,a,valid}=digTarget();
+  const p=player.root.position,{x,z,a,valid,pyramid}=digTarget();
   if(!valid)return false;
-  let hole=nearestHole(x,z);const pyramidDistance=Math.hypot(x-PYRAMID.x,z-PYRAMID.z);
-  if(pyramidDistance<1.45){hole=holes.find(h=>h.pyramid);if(!hole){hole={x:PYRAMID.x,z:PYRAMID.z,level:0,pyramid:true,visual:new THREE.Group()};scene.add(hole.visual);holes.push(hole);}}
+  let hole=pyramid?holes.find(h=>h.pyramid):nearestHole(x,z);
+  if(pyramid){if(!hole){hole={x:PYRAMID.x,z:PYRAMID.z,level:0,pyramid:true,visual:new THREE.Group()};scene.add(hole.visual);holes.push(hole);}}
   if(!hole){hole={x,z,level:0,pyramid:false,visual:new THREE.Group()};scene.add(hole.visual);holes.push(hole);}
   game.targetAngle=a;game.cooldown=.82;game.swing=.82;digTime=.82;pending={hole,at:.39,from:new THREE.Vector2(p.x,p.z)};return true;
  }
@@ -80,14 +84,19 @@ export function createExploration(scene,game,{sound,noise}){
  }
  function showLoot(label){$('loot').textContent=`${label}  →  🎒`;$('loot').hidden=false;clearTimeout(showLoot.timer);showLoot.timer=setTimeout(()=>{$('loot').hidden=true;},1800);}
  const nearWorkbench=()=>game.buildings.some(b=>b.type==='workbench'&&Math.hypot(b.x-player.root.position.x,b.z-player.root.position.z)<2);
+ let bagSignature='';
  function updateBag(){
   const strips=inventory.strips?.length||0,ropes=inventory.ropes?.length||0,ropeLength=inventory.ropes?.reduce((n,r)=>n+r.length,0)||0,atBench=nearWorkbench();
-  const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lano ${ropeLength} m`:'Lano',ropes,'join'],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
+  const ropeDetail=ropes?inventory.ropes.map(r=>`${r.length} m / ${r.quality} %`).join(' · '):'';
+  const entries=[['🪵','Dřevo',game.wood],['🍃','Listí',game.leaves,'leaf'],['🌿','Liána',inventory.vine,'vine'],['〰️','Proužky',strips,'braid'],['🪢',ropeLength?`Lana ${ropeLength} m · ${ropeDetail}`:'Lano',ropes,'join'],['🟫','Jíl',inventory.clay],['🪨','Měděná ruda',inventory.ore],['⚫','Dřevěné uhlí',inventory.charcoal],['⬜','Popel',inventory.ash],['🟠','Měděný ingot',inventory.ingot],['✂️','Měděný řezák',Number(inventory.copperCutter)],['🥥','Kokosy',inventory.coconut],['🐟','Ryby',inventory.fish],['🦐','Plody moře',inventory.seafood],['🍢','Opečené jídlo',inventory.cooked],['🪶','Pírka',inventory.feather],['🥩','Maso',inventory.meat],...Object.entries(lootMeta).map(([k,[icon,name]])=>[icon,name,inventory[k]])];
+  const signature=JSON.stringify([atBench,entries]);
+  if(signature===bagSignature)return;
+  bagSignature=signature;
   $('bagContents').innerHTML=entries.map(([icon,name,n,action])=>{const enough=action==='braid'?n>=3:action==='join'?n>=2:n>0,enabled=enough&&atBench;return action?`<button class="bagItem" data-workshop="${action}" ${enabled?'':'disabled'} aria-label="${name}, ${n||0}. ${atBench?'Otevřít výrobu u ponku':'Vyžaduje pracovní ponk'}"><span>${icon}</span><small>${name}${atBench?'':' · u ponku'}</small><b>${n||0}</b></button>`:`<div><span>${icon}</span><small>${name}</small><b>${n||0}</b></div>`}).join('');$('bagTotal').textContent=entries.reduce((n,e)=>n+(e[2]||0),0);
  }
- function toggleBag(open=$('bagPanel').hidden){$('bagPanel').hidden=!open;$('bagBtn').setAttribute('aria-expanded',String(open));}
+ function toggleBag(open=$('bagPanel').hidden){if(open)updateBag();$('bagPanel').hidden=!open;$('bagBtn').setAttribute('aria-expanded',String(open));}
  let lastTouchOpen=0;function openBagWorkshop(e){const item=e.target.closest?.('[data-workshop]');if(!item||item.disabled)return false;e.preventDefault();lastTouchOpen=performance.now();workshop.open(item.dataset.workshop);return true;}
- $('bagBtn').onclick=()=>toggleBag();$('bagClose').onclick=()=>toggleBag(false);$('bagContents').addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')openBagWorkshop(e);});$('bagContents').addEventListener('click',e=>{if(performance.now()-lastTouchOpen>500)openBagWorkshop(e);});workshop=createFiberCrafting(game,{sound,onInventoryChange:()=>{updateBag();$('leaves').textContent=game.leaves;},closeBag:()=>toggleBag(false),canCraft:nearWorkbench});game.openFiberCrafting=action=>workshop.open(action);updateBag();
+ $('bagBtn').onclick=()=>toggleBag();$('bagClose').onclick=()=>toggleBag(false);$('bagContents').addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')openBagWorkshop(e);});$('bagContents').addEventListener('click',e=>{if(performance.now()-lastTouchOpen>500)openBagWorkshop(e);});workshop=createFiberCrafting(game,{sound,onInventoryChange:()=>{updateBag();$('leaves').textContent=game.leaves;game.requestSave?.();},closeBag:()=>toggleBag(false),canCraft:nearWorkbench});game.openFiberCrafting=action=>workshop.open(action);updateBag();
 
  function startFlood(h,sourceX,sourceZ,startHeight){
   if(h.flood)return h.flood;const bottom=terrain.heightAt(h.x,h.z),material=new THREE.MeshPhysicalMaterial({color:0x35b7bd,transparent:true,opacity:.42,roughness:.15,metalness:.05,depthWrite:false});const surface=mesh(new THREE.CircleGeometry(1,48),material,scene,sourceX,startHeight,sourceZ);surface.rotation.x=-Math.PI/2;surface.scale.setScalar(.04);surface.renderOrder=3;surface.castShadow=false;
@@ -108,10 +117,11 @@ export function createExploration(scene,game,{sound,noise}){
   if(hole.pyramid){
    const reveal=Math.min(hole.level,PYRAMID_REVEAL_DEPTH)/PYRAMID_REVEAL_DEPTH,target=GROUND-1.87+reveal*1.69;pyramid.userData.targetY=target;
    if(hole.level===2)addLoot('coin',hole.x+.3,hole.z);else if(hole.level===4)addLoot('pearl',hole.x-.25,hole.z+.15);else if(hole.level===PYRAMID_REVEAL_DEPTH){addLoot('relic',hole.x,hole.z-.3);showLoot('🗿 Pyramida odkryta  →  🎒 relikvie');}
-  }else{const r=Math.random(),kind=r<.08?'chest':r<.18?'pearl':r<.45?'coin':r<.72?'shell':null;if(kind)addLoot(kind,hole.x,hole.z);}
+  }else{const r=Math.random(),kind=r<.08?'chest':r<.18?'pearl':r<.45?'coin':r<.72?'shell':null;if(kind)addLoot(kind,hole.x,hole.z);const material=excavationYield(hole.level);if(material){inventory[material]++;showLoot(material==='clay'?'🟫 Jíl +1':'🪨 Měděná ruda +1');updateBag();}}
+  game.requestSave?.();
  }
 
- return {dig,select,get tool(){return tool},inventory,holes,floods,pyramid,update(dt){
+ return {dig,select,get tool(){return tool},inventory,holes,floods,pyramid,restoreFloods(savedHoles=[]){savedHoles.forEach((saved,i)=>{if(saved.flood&&holes[i])startFlood(holes[i],saved.flood.sourceX,saved.flood.sourceZ,saved.flood.height);});for(const h of holes)maybeFlood(h);spreadWater();},update(dt){
   const marker=digTarget();digMarker.visible=tool==='shovel'&&!game.craftingOpen;if(digMarker.visible){digMarker.position.set(marker.x,terrain.heightAt(marker.x,marker.z)+.028,marker.z);digMarkerMaterial.color.set(marker.valid?0xffefad:0xf06f61);digMarker.scale.setScalar(.96+Math.sin(game.elapsed*5)*.04);}
   if(pending){pending.at-=dt;if(pending.at<=0){uncover(pending);pending=null;}}digTime=Math.max(0,digTime-dt);gunTime=Math.max(0,gunTime-dt);muzzle.visible=gunTime>.2;const moving=game.walk!==0;walkBlend=THREE.MathUtils.damp(walkBlend,moving?1:0,9,dt);const t=game.elapsed;
   player.body.rotation.z=Math.sin(game.walk)*.045*walkBlend;player.body.rotation.y=Math.sin(game.walk)*.05*walkBlend;player.body.position.y=Math.abs(Math.sin(game.walk))*.045*walkBlend+Math.sin(t*2.1)*.009;player.body.scale.y=1+Math.sin(t*2.1)*.008;player.body.rotation.x=game.swimming?.42:digTime?Math.sin((.82-digTime)/.82*Math.PI)*.42:game.swing?Math.sin((.5-game.swing)/.5*Math.PI)*.09:walkBlend*.045;

@@ -179,6 +179,13 @@ Chatová konverzace může skončit nebo se změnit. Další asistent musí být
 
 ## 9. Referenční dokumentace
 
+Pracovní kandidát z 25. 9. 2026 a jeho testy, omezení i kroky před vydáním jsou
+zaznamenány v [herním sprintu](SPRINT-2026-09-25.md) a
+[draft PR #1](https://github.com/MinarikEffecto/Hra/pull/1).
+[Závěrečné ověření](FINALIZACE-2026-09-26.md) dokládá 33 testů, sedm rozměrů
+dílny a úplný mobilní průchod na neměnném kódu. `main` a živá verze Sites
+zůstávají na výchozím stavu; zbývá review, skutečný telefon a samostatné vydání.
+
 - [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) – větve, kontrola a začleňování změn.
 - [ChatGPT Sites](https://learn.chatgpt.com/docs/sites) – verze, publikování, hosting a úložiště D1/R2.
 
