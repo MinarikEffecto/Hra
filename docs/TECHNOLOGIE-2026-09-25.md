@@ -48,14 +48,21 @@ hodnoty, ochrana pozice z novější verze, uložení hlubokého výkopu, atomic
 suroviny na pec a job, odmítnutí druhého jobu, dokončení právě jednou,
 uložení a obnova tavby, opékání ze starých testů i čtyři prameny s řezákem.
 `node --check` dotčených modulů a `git diff --check` prošly. Aktuální výsledek
-celé pracovní větve je **31/31**; stav dalších funkcí a otevřený průchod od
+celé pracovní větve je **31/31**; současný průchod od
 nové hry shrnuje [sprint](SPRINT-2026-09-25.md).
 
-Samostatný headless Chromium se softwarovým WebGL otevřel hru na desktopu 1280 × 800, mobilu 390 × 844 a krátké obrazovce 844 × 390. V každém rozměru se otevřela výroba, spustilo pálení a obnovil se aktivní job po reloadu; žádná neodchycená JS chyba. Na desktopu prošla tlačítka opékání ryby, tavby u pece a výroby řezáku u ponku. Na mobilním rozměru 390 × 844 navíc výroba **skutečně doběhla**: získané uhlí se spotřebovalo v tavbě, vznikl ingot a z něj u ponku řezák; do těchto návazných kroků se nepřidávalo testovací uhlí ani ingot. Mobilní tlačítko výroby má krátkou ikonu, aby nepřetékalo přes ostatní ovládání. Pro prohlížečový scénář byla použita validní připravená pozice se stavbami, dřevem, jílem a rudou; skript mezi stanicemi zkrátil přesun hráče. Úplný nový technologický postup od pokácení čtyř palem a čtyř kopnutí nebyl v reálném prohlížeči projit. Skutečný telefon a dlouhé časování výroby v něm nebyly ověřeny. Offline výroba ani několik současných jobů nejsou součástí tohoto úzkého celku.
+Samostatný headless Chromium se softwarovým WebGL otevřel hru na desktopu 1280 × 800, mobilu 390 × 844 a krátké obrazovce 844 × 390. V každém rozměru se otevřela výroba, spustilo pálení a obnovil se aktivní job po reloadu; žádná neodchycená JS chyba. Na desktopu prošla tlačítka opékání ryby, tavby u pece a výroby řezáku u ponku. Na mobilním rozměru 390 × 844 navíc výroba **skutečně doběhla**: získané uhlí se spotřebovalo v tavbě, vznikl ingot a z něj u ponku řezák; do těchto návazných kroků se nepřidávalo testovací uhlí ani ingot. Mobilní tlačítko výroby má krátkou ikonu, aby nepřetékalo přes ostatní ovládání. Pro tento tehdejší prohlížečový scénář byla použita validní připravená pozice se stavbami, dřevem, jílem a rudou; skript mezi stanicemi zkrátil přesun hráče. Úplný nový technologický postup od pokácení čtyř palem a čtyř kopnutí v něm nebyl projit. Skutečný telefon a dlouhé časování výroby v něm nebyly ověřeny. Offline výroba ani několik současných jobů nejsou součástí tohoto úzkého celku.
 
 Samostatné mobilní průchody navíc ověřily čtyři skutečná kopnutí k jílu a rudě,
 umístění pece a obnovení pozice, a částečnou cestu od úplně nové hry bez seedu
 či přesunu: joystick, pokácení dvou palem, sběr dřeva a dotykové spuštění
-pálení u ohniště. Nejde o ověření celého řetězce od nové hry až po řezák.
+pálení u ohniště. Tyto tehdejší dílčí scénáře neověřovaly celý řetězec od nové
+hry až po řezák.
+
+Pozdější souvislý mobilní dotykový průchod od nové hry bez předpřipravených
+zásob a přesunu skriptem dosáhl řezáku včetně uložení a obnovení rozdělané
+tavby i závěrečného reloadu pozice v3. Podrobnosti jsou ve
+[sprintu](SPRINT-2026-09-25.md). Větev se během tohoto QA posouvala od
+`dadb047` k `f69d9ed`; opakování na neměnném finálním commitu ještě probíhá.
 
 Ručně spravovaný `dist/` zůstává zdrojem, bez build kroku a bez nasazení.
