@@ -6,6 +6,7 @@ import {createReadStream, statSync, mkdtempSync, mkdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {resolve, extname} from 'node:path';
+import {SAVE_SCHEMA_VERSION} from '../../dist/save-game.js';
 
 const root = resolve(process.env.HRA_QA_DIST ?? fileURLToPath(new URL('../../dist/', import.meta.url)));
 const output = process.env.HRA_QA_OUTPUT ?? mkdtempSync(resolve(tmpdir(), 'hra-planting-'));
@@ -76,7 +77,7 @@ try {
     if (label !== 'short-landscape') await click('#plantPalm');
     await page.screenshot({path: resolve(output, `${label}-seedling.png`)});
     const planted = await snapshot();
-    assert.equal(planted.schemaVersion, 5);
+    assert.equal(planted.schemaVersion, SAVE_SCHEMA_VERSION);
     assert.equal(planted.inventory.coconut, 1);
     assert.equal(planted.world.plantings.length, 1);
     assert.ok(planted.world.plantings[0].remaining > 160 && planted.world.plantings[0].remaining <= 180);

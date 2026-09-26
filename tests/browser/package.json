@@ -6,7 +6,8 @@
     "test": "node workshop.mjs",
     "progression": "node progression.mjs",
     "planting": "node planting.mjs",
-    "first-tools": "node first-tools.mjs"
+    "first-tools": "node first-tools.mjs",
+    "buried-cache": "node buried-cache.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.63.0",

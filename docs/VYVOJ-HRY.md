@@ -195,6 +195,12 @@ Větev `feature/2026-09-26-first-tools` navazuje na PR #2 a přidává
 úštěp, sekáč, násadu, vazbu, sekeru a výrobu lopaty. Formát v5 zachovává
 vybavení starých pozic v1–v4. Ani tato větev zatím není vydaná na Sites.
 
+Na úpravu [ovladačů nástrojů](OVLADANI-NASTROJU-2026-09-26.md) navazuje
+větev `feature/2026-09-26-buried-cache` se
+[zásobovací skrýší K–03](BUNKR-SKRYS-2026-09-26.md). První skrytý nález
+propojuje kopání, řezák a spojené lano; formát v6 zachovává starší pozice.
+Skrýš je samostatný kandidát pro review, dosud bez vydání Sites.
+
 - [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) – větve, kontrola a začleňování změn.
 - [ChatGPT Sites](https://learn.chatgpt.com/docs/sites) – verze, publikování, hosting a úložiště D1/R2.
 
